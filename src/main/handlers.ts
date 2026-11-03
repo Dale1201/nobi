@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, Menu, shell } from 'electron'
+import { BrowserWindow, clipboard, dialog, Menu, shell } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import type { TreeSnapshot } from '../shared/ipc'
@@ -34,6 +34,12 @@ export function workspaceInfo(ws: Workspace): WorkspaceInfo {
 
 export function snapshot(ws: Workspace): TreeSnapshot {
   return { pages: ws.tree(), favorites: ws.favorites() }
+}
+
+/** Sends the sidebar the page tree after a change it did not make itself. */
+export function treeChanged(ctx: AppContext): void {
+  const win = ctx.window()
+  if (win && ctx.workspace) send(win.webContents, 'tree:changed', snapshot(ctx.workspace))
 }
 
 export async function openWorkspace(ctx: AppContext, root: string): Promise<WorkspaceInfo> {
@@ -92,15 +98,11 @@ export function registerHandlers(ctx: AppContext): void {
     if (!ctx.workspace) throw new Error('No workspace is open')
     return ctx.workspace
   }
-  const changed = (): void => {
-    const win = ctx.window()
-    if (win && ctx.workspace) send(win.webContents, 'tree:changed', snapshot(ctx.workspace))
-  }
   const mutate =
     <P, R>(fn: (w: Workspace, p: P) => Promise<R>) =>
     async (p: P): Promise<R> => {
       const result = await fn(ws(), p)
-      changed()
+      treeChanged(ctx)
       return result
     }
 
@@ -221,6 +223,7 @@ export function registerHandlers(ctx: AppContext): void {
   handle('shell:openExternal', async ({ url }) => {
     if (/^(https?|mailto):/i.test(url)) await shell.openExternal(url)
   })
+  handle('clipboard:writeText', ({ text }) => clipboard.writeText(text))
   handle('window:close', () => {
     ctx.window()?.close()
   })

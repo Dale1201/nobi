@@ -400,3 +400,24 @@ describe('Workspace links sub-pages from their parent', () => {
     ])
   })
 })
+
+describe('Writes from outside the editor', () => {
+  it('refuse a stale version, and make an editor holding the old revision conflict', async () => {
+    await writeFile(join(root, 'A.md'), 'Before\n')
+    const ws = await Workspace.open(root, { settleMs: 0 })
+    const id = ws.tree()[0].id
+    const { doc, version } = await ws.readVersioned(id)
+    const written = await ws.writeOutside(id, () => [text('Claude')], version)
+    expect(written).toMatchObject({ ok: true })
+    expect(await ws.writeOutside(id, () => [text('Again')], version)).toEqual({
+      ok: false,
+      reason: 'conflict'
+    })
+    expect(await ws.writePage(id, [text('Typed')], { revision: doc.revision })).toEqual({
+      ok: false,
+      reason: 'conflict'
+    })
+    expect(await read('A.md')).toBe(`---\nid: ${id}\n---\n\nClaude\n`)
+    expect((await ws.readVersioned(id)).version).toBe(written.ok && written.version)
+  })
+})

@@ -13,7 +13,8 @@ export const DEFAULT_SETTINGS: Settings = {
   tabs: {},
   recent: {},
   lastColor: { kind: 'background', color: 'yellow' },
-  ai: { enabled: true, model: DEFAULT_AI_MODEL }
+  ai: { enabled: true, model: DEFAULT_AI_MODEL },
+  mcp: { enabled: false }
 }
 
 export class SettingsStore {

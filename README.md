@@ -15,6 +15,8 @@ Your notes are plain Markdown files in a folder you choose, so they stay yours.
 - Quick search (Cmd+K or Cmd+P) across titles and text, with recent pages.
 - Tabs like Notion's desktop app: Cmd+T, Cmd-click or middle-click to open, drag to reorder, Cmd+Shift+T to reopen, and each notes folder's tabs come back after a restart.
 - Edit with AI, like Notion's Writer: select text and press Cmd+J, or Space on an empty line, to improve, proofread, shorten, translate, summarize or continue with Claude, using your own Anthropic API key; changes show as a diff to accept or undo.
+- Let Claude Code read and edit your notes: turn it on in Settings > Connections and run the command shown there once.
+  Claude can search, read, create, edit, move and trash pages while the app is open; what it replaces stays in page history.
 - Favorites, duplicate, move to, and a table of contents block.
 - Trash with restore, and page history with restore.
 - Edits made in other apps, Finder or a sync folder show up live, without losing yours.

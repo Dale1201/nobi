@@ -1841,6 +1841,35 @@ button.breadcrumb:hover {
   font-size: 13px;
   color: var(--color-red);
 }
+.settings-connect {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-command {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 8px;
+  background: var(--input-bg);
+  box-shadow: inset 0 0 0 1px var(--border-translucent);
+}
+.settings-command-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.settings-command .settings-button {
+  flex: none;
+  background: var(--bg);
+}
 .settings-usage {
   display: flex;
   align-items: baseline;

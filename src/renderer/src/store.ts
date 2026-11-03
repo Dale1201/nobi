@@ -49,7 +49,7 @@ export interface Rescue {
   conflicted: boolean
 }
 
-export type SettingsSection = 'preferences' | 'ai'
+export type SettingsSection = 'preferences' | 'ai' | 'connections'
 
 export type Overlay =
   | { kind: 'search' }

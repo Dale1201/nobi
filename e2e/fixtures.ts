@@ -22,6 +22,8 @@ export async function launch(
     env: {
       NOBSIDIAN_USER_DATA: userData,
       NODE_ENV: 'test',
+      // Parallel test apps would otherwise share the connector's default port.
+      NOBSIDIAN_MCP_PORT: '0',
       ...(aiUrl ? { NOBSIDIAN_AI_BASE_URL: aiUrl } : {})
     }
   })
