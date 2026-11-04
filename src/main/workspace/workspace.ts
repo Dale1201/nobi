@@ -1,5 +1,5 @@
 import { mkdir, readFile, stat } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { basename, extname, join } from 'node:path'
 import type { Block } from '../../shared/core/blocks'
 import { DRAWING_SUFFIX, isDrawingHref } from '../../shared/core/drawing'
@@ -224,6 +224,47 @@ export class Workspace {
       await this.history.writeOwn(r, disk, serializePage({ ...meta, id }, fileBlocks))
       this.core.indexBlocks(r, this.core.texts.get(r.path) ?? '', fileBlocks)
       return { ok: true, revision }
+    })
+  }
+
+  /** A page with a version that changes whenever its file does, for writers other than the editor. */
+  readVersioned(id: string): Promise<{ doc: PageDoc; version: string }> {
+    return this.run(async () => {
+      const r = this.core.record(id)
+      const text = await this.core.readCurrent(r)
+      const revision = this.core.revision(id)
+      const doc: PageDoc = { ...this.core.toDoc(r.path, text), id, title: r.title, revision }
+      return { doc, version: textVersion(text) }
+    })
+  }
+
+  /**
+   * Changes a page's blocks for a writer other than the editor, such as Claude: the text it
+   * replaces goes to history, and open editors reload or show a conflict. Refused when the file
+   * no longer has `version`.
+   */
+  writeOutside(
+    id: string,
+    edit: (blocks: Block[]) => Block[],
+    version?: string
+  ): Promise<{ ok: true; version: string } | { ok: false; reason: 'conflict' }> {
+    return this.run(async () => {
+      const core = this.core
+      const r = core.record(id)
+      const disk = await core.readCurrent(r)
+      if (version !== undefined && textVersion(disk) !== version) {
+        return { ok: false, reason: 'conflict' }
+      }
+      const fileBlocks = core.toFileBlocks(r.path, edit(core.toDoc(r.path, disk).blocks))
+      const text = serializePage({ ...parsePage(disk).meta, id }, fileBlocks)
+      await this.history.snapshot(id, disk, r.path)
+      core.owned.add(id)
+      await core.writeText(r.path, text)
+      core.indexBlocks(r, text, fileBlocks)
+      const revision = core.revision(id) + 1
+      core.revisions.set(id, revision)
+      core.emit({ type: 'page', id, revision })
+      return { ok: true, version: textVersion(text) }
     })
   }
 
@@ -533,4 +574,8 @@ export class Workspace {
     if (rel === '' || rel.startsWith(APP_DIR)) return null
     return this.core.abs(rel)
   }
+}
+
+function textVersion(text: string): string {
+  return createHash('sha256').update(text).digest('hex').slice(0, 16)
 }

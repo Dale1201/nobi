@@ -16,7 +16,13 @@ import { pathToFileURL } from 'node:url'
 import { is } from '@electron-toolkit/utils'
 import { ASSET_SCHEME, EXCALIDRAW_HOST } from '../shared/ipc'
 import { contextMenuTemplate } from './contextMenu'
-import { openWorkspace, registerHandlers, updateMenu, type AppContext } from './handlers'
+import {
+  openWorkspace,
+  registerHandlers,
+  treeChanged,
+  updateMenu,
+  type AppContext
+} from './handlers'
 import { ImportService } from './import/service'
 import { startImportWorker } from './import/start-worker'
 import { send } from './ipc'
@@ -28,6 +34,9 @@ import { KeyStore } from './ai/keyStore'
 import { AiService } from './ai/service'
 import { UsageLedger } from './ai/usage'
 import { DEFAULT_AI_MODEL, isAiModel } from '../shared/ai'
+import { DEFAULT_MCP_PORT } from '../shared/mcp'
+import { registerMcpHandlers } from './mcp/handlers'
+import { McpService } from './mcp/service'
 import { windowControls } from '../shared/window'
 
 if (process.env.NOBSIDIAN_USER_DATA) app.setPath('userData', process.env.NOBSIDIAN_USER_DATA)
@@ -87,6 +96,16 @@ const ai = new AiService({
     const model = ctx.settings.get().ai?.model
     return isAiModel(model) ? model : DEFAULT_AI_MODEL
   }
+})
+
+const mcp = new McpService({
+  settings: ctx.settings,
+  tokenFile: join(app.getPath('userData'), 'mcp-token'),
+  defaultPort: process.env.NOBSIDIAN_MCP_PORT
+    ? Number(process.env.NOBSIDIAN_MCP_PORT)
+    : DEFAULT_MCP_PORT,
+  access: { workspace: () => ctx.workspace, treeChanged: () => treeChanged(ctx) },
+  version: app.getVersion()
 })
 
 /** Saved bounds, unless the display they were on is gone. */
@@ -257,9 +276,11 @@ app.whenReady().then(async () => {
 
   registerHandlers(ctx)
   registerAiHandlers(ai)
+  registerMcpHandlers(mcp)
   Menu.setApplicationMenu(buildMenu(() => mainWindow))
   updateMenu(ctx)
   createWindow()
+  void mcp.start()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

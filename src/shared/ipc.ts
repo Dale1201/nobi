@@ -1,5 +1,6 @@
 import type { AiError, AiKeyResult, AiMode, AiModel, AiStart, AiStatus } from './ai'
 import type { Block } from './core/blocks'
+import type { McpStatus } from './mcp'
 import type {
   HistoryVersion,
   ImportStatus,
@@ -34,6 +35,8 @@ export interface Settings {
   lastColor: { kind: 'text' | 'background'; color: string }
   /** The API key is not here: it is kept encrypted by the main process. */
   ai: { enabled: boolean; model: AiModel }
+  /** The Claude connector; `port` is the one it last listened on, kept so Claude's config stays valid. */
+  mcp: { enabled: boolean; port?: number }
 }
 
 /** A workspace's tabs: each tab's page history and position in it, and which tab is active. */
@@ -128,9 +131,14 @@ export interface IpcContract {
   'settings:get': [payload: void, result: Settings]
   'settings:set': [payload: Partial<Settings>, result: Settings]
   'shell:openExternal': [payload: { url: string }, result: void]
+  'clipboard:writeText': [payload: { text: string }, result: void]
   'app:flushed': [payload: { saved: boolean }, result: void]
   /** Closes the window, saving pending edits first, as the close button does. */
   'window:close': [payload: void, result: void]
+  'mcp:status': [payload: void, result: McpStatus]
+  'mcp:setEnabled': [payload: { enabled: boolean }, result: McpStatus]
+  /** Makes a new token, so clients using the old one are refused. */
+  'mcp:resetToken': [payload: void, result: McpStatus]
   'ai:status': [payload: void, result: AiStatus]
   /** Checks the key with Anthropic, then stores it encrypted. */
   'ai:setKey': [payload: { key: string }, result: AiKeyResult]

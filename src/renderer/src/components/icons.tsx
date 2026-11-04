@@ -314,6 +314,12 @@ export const UndoIcon = (p: IconProps): React.JSX.Element => (
   </Svg>
 )
 
+export const PlugIcon = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M7.5 3v3.5M12.5 3v3.5M5.5 6.5h9v3a4.5 4.5 0 0 1-9 0v-3ZM10 14v3" {...stroke} />
+  </Svg>
+)
+
 export const SlidersIcon = (p: IconProps): React.JSX.Element => (
   <Svg {...p}>
     <path d="M3.5 6h6M13.5 6h3M3.5 14h3M10.5 14h6" {...stroke} />
