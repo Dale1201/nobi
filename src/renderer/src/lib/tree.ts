@@ -31,6 +31,12 @@ export function pageIdForHref(nodes: PageNode[], href: string): string | null {
   return findNodeByPath(nodes, decodeHref(href.slice(1)))?.id ?? null
 }
 
+export function pageTitleForHref(nodes: PageNode[], href: string): string | undefined {
+  const id = pageIdForHref(nodes, href)
+  const node = id ? findNode(nodes, id) : null
+  return node ? node.title || 'Untitled' : undefined
+}
+
 /** Nodes from the root down to (and including) `id`. */
 export function pathTo(nodes: PageNode[], id: string): PageNode[] {
   for (const node of nodes) {
