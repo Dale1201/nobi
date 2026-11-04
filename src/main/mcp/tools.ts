@@ -1,5 +1,6 @@
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server'
 import { z } from 'zod'
+import { pageIdFromHref } from '../../shared/core/links'
 import { markdownToBlocks } from '../../shared/core/parse'
 import { blocksToMarkdown } from '../../shared/core/serialize'
 import type { PageNode } from '../../shared/types'
@@ -153,7 +154,12 @@ export function createNotesServer(access: NotesAccess, version: string): McpServ
           `parent: ${parent ? `${titleOf(parent)} (id: ${parent.id})` : 'none (top level)'}`,
           `version: ${version}`,
           '',
-          blocksToMarkdown(doc.blocks)
+          blocksToMarkdown(doc.blocks, {
+            pageTitle: (href) => {
+              const node = at.get(pageIdFromHref(href) ?? '')?.node
+              return node && titleOf(node)
+            }
+          })
         ].join('\n')
       )
     })

@@ -165,6 +165,18 @@ describe('the MCP server', () => {
     )
   })
 
+  it('reads a page block back with the title of the page it links to', async () => {
+    const projects = idIn(await call('list_pages'))
+    const launch = idIn(await call('create_page', { title: 'Launch', parentId: projects }))
+    expect(await call('read_page', { id: projects })).toContain(
+      `[Launch](nobsidian://page/${launch} "page")`
+    )
+    await call('rename_page', { id: launch, title: 'Launch day' })
+    expect(await call('read_page', { id: projects })).toContain(
+      `[Launch day](nobsidian://page/${launch} "page")`
+    )
+  })
+
   it('searches, renames, moves and trashes pages', async () => {
     const projects = idIn(await call('list_pages'))
     const idea = idIn(await call('create_page', { title: 'Idea', markdown: 'A zeppelin café.' }))

@@ -2,6 +2,7 @@
 import { BlockNoteEditor, type PartialBlock } from '@blocknote/core'
 import { NodeSelection, TextSelection } from 'prosemirror-state'
 import { expect, it } from 'vitest'
+import { schema } from '../editor/schema'
 import { pageMarkdown } from './context'
 
 function editorWith(blocks: PartialBlock[]): BlockNoteEditor {
@@ -70,4 +71,16 @@ it('wraps selected blocks, and never sends media', () => {
     '## Plan\n\n⟦selection⟧\n\nLaunch in November.\n\n[image]\n\n⟦/selection⟧\n\n- QA\n\n  [file]\n'
   )
   expect(markdown).not.toContain('attachments/')
+})
+
+it('names a page block by the title of the page it links to', () => {
+  const editor = BlockNoteEditor.create({
+    schema,
+    initialContent: [{ type: 'pageLink', props: { href: 'nobsidian://page/p1' } }]
+  })
+  editor.mount(document.createElement('div'))
+  const titles: Record<string, string> = { 'nobsidian://page/p1': 'Launch plan' }
+  expect(pageMarkdown(editor, { cursor: true }, (href) => titles[href])).toContain(
+    '[Launch plan](nobsidian://page/p1 "page")'
+  )
 })

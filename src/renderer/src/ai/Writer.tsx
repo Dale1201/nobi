@@ -6,6 +6,7 @@ import { ArrowUpIcon, CheckIcon, SparkleIcon, StopIcon, UndoIcon } from '../comp
 import { selectBlocks, selectedBlockIds } from '../editor/blockSelection'
 import type { AppEditor } from '../editor/schema'
 import { useAppEditor } from '../editor/useAppEditor'
+import { pageTitleForHref } from '../lib/tree'
 import { useApp } from '../store'
 import { useAi } from './aiStore'
 import { nodeSelectedBlock, pageMarkdown } from './context'
@@ -95,7 +96,7 @@ function newSession(editor: AppEditor): Session {
     id: crypto.randomUUID(),
     selection: selectedBlocks.length > 0 || textSelected,
     selectedBlocks,
-    markdown: pageMarkdown(editor, mark)
+    markdown: pageMarkdown(editor, mark, (href) => pageTitleForHref(useApp.getState().tree, href))
   }
 }
 

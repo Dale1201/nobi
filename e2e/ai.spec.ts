@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
 import { GOOD_KEY } from './fakeAnthropic'
@@ -28,6 +28,25 @@ const pastSaveDebounce = (page: Page): Promise<void> => page.waitForTimeout(1500
 async function selectParagraph(page: Page, text: string): Promise<void> {
   await clickInEditor(page, text, 3)
 }
+
+test('the page Claude reads names a page block by its title', async ({ nb, anthropic }) => {
+  await mkdir(join(nb.workspace, 'Notes'))
+  await writeFile(join(nb.workspace, 'Notes', 'Launch plan.md'), 'Dates.\n')
+  const page = await setUp(nb, `${PAGE}\n[Launch plan](Notes/Launch%20plan.md "page")\n`)
+  await expect(page.locator('.nb-page-link-title')).toHaveText('Launch plan')
+  await selectParagraph(page, 'We spent the hour arguing about launch.')
+  await page.getByRole('button', { name: 'Ask AI' }).click()
+  anthropic.reply({ text: 'We argued about launch.' })
+  await page
+    .getByRole('dialog', { name: 'AI' })
+    .getByRole('option', { name: 'Make shorter' })
+    .click()
+  await expect(page.locator('.nb-ai-added')).toHaveText('We argued about launch.')
+  const sent = (anthropic.messages()[0].messages as { content: { text: string }[] }[])[0]
+  expect(sent.content[0].text).toMatch(
+    /\[Launch plan\]\(nobsidian:\/\/page\/[0-9a-f-]{36} "page"\)/
+  )
+})
 
 test('Make shorter streams a diff into the page, saved only once accepted', async ({
   nb,

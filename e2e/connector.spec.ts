@@ -81,6 +81,10 @@ test('Claude Code connects from Settings, and the open page shows what it writes
   await row.getByRole('button', { name: 'Expand' }).click()
   await expect(page.getByTestId('sidebar-row-Launch')).toBeVisible()
   await waitForFile(join(workspace, 'Plans', 'Launch.md'), 'Go live.')
+  const launch = idOf(await call(client, 'list_pages'), 'Launch')
+  expect(await call(client, 'read_page', { id: plans })).toContain(
+    `[Launch](nobsidian://page/${launch} "page")`
+  )
 
   // Typing Claude's write lands on is kept on screen, not overwritten either way.
   await page.locator(editor).getByText('Rewritten by Claude').click()

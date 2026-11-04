@@ -2,7 +2,7 @@ import { nodeToBlock, type BlockNoteEditor } from '@blocknote/core'
 import { NodeSelection, type EditorState } from 'prosemirror-state'
 import { CURSOR, SELECTION_END, SELECTION_START } from '@shared/ai'
 import type { Block } from '@shared/core/blocks'
-import { blocksToMarkdown } from '@shared/core/serialize'
+import { blocksToMarkdown, type SerializeOptions } from '@shared/core/serialize'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyEditor = BlockNoteEditor<any, any, any>
@@ -62,7 +62,8 @@ function insertAfter(blocks: Block[], id: string, block: Block): Block[] {
  */
 export function pageMarkdown(
   editor: AnyEditor,
-  mark: { selectedBlocks: string[] } | { cursor: true } | { selection: true }
+  mark: { selectedBlocks: string[] } | { cursor: true } | { selection: true },
+  pageTitle?: SerializeOptions['pageTitle']
 ): string {
   const state = editor.prosemirrorState
   const tr = state.tr
@@ -80,5 +81,5 @@ export function pageMarkdown(
   })
   if (after) blocks = insertAfter(blocks, after, marker(CURSOR))
   if ('selectedBlocks' in mark) blocks = wrapBlocks(blocks, new Set(mark.selectedBlocks))
-  return blocksToMarkdown(withoutMedia(blocks))
+  return blocksToMarkdown(withoutMedia(blocks), { pageTitle })
 }
