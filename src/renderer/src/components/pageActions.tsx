@@ -1,6 +1,15 @@
 import { emitPageEvent } from '../lib/pageEvents'
 import { useApp } from '../store'
-import { DuplicateIcon, MoveIcon, OpenInTabIcon, RenameIcon, StarIcon, TrashIcon } from './icons'
+import {
+  DuplicateIcon,
+  FolderIcon,
+  LinkIcon,
+  MoveIcon,
+  OpenInTabIcon,
+  RenameIcon,
+  StarIcon,
+  TrashIcon
+} from './icons'
 import type { MenuItemEntry } from './menu/model'
 
 const app = useApp.getState
@@ -79,6 +88,32 @@ export function openInTabEntry(id: string): MenuItemEntry {
     hint: SHORTCUTS.openInTab,
     icon: <OpenInTabIcon size={16} />,
     onSelect: () => app().openPage(id, { tab: 'foreground' })
+  }
+}
+
+export function revealEntry(id: string): MenuItemEntry {
+  return {
+    kind: 'item',
+    id: 'reveal',
+    label: 'Reveal in Finder',
+    keywords: ['show', 'open', 'folder', 'explorer'],
+    icon: <FolderIcon size={16} />,
+    onSelect: () =>
+      void api.invoke('page:reveal', { id }).catch((e) => app().reportError('reveal', e))
+  }
+}
+
+export function copyPathEntry(id: string): MenuItemEntry {
+  return {
+    kind: 'item',
+    id: 'copy-path',
+    label: 'Copy file path',
+    keywords: ['link', 'location'],
+    icon: <LinkIcon size={16} />,
+    onSelect: () =>
+      void api
+        .invoke('page:copyPath', { id })
+        .catch((e) => app().reportError('copy the path of', e))
   }
 }
 

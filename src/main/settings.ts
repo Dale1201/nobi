@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export class SettingsStore {
   private current: Settings = { ...DEFAULT_SETTINGS }
+  private saving: Promise<void> = Promise.resolve()
 
   constructor(private readonly file: string) {}
 
@@ -38,8 +39,15 @@ export class SettingsStore {
 
   async set(patch: Partial<Settings>): Promise<Settings> {
     this.current = { ...this.current, ...patch }
+    // One write at a time, each of the latest settings: overlapping writes can land out of order.
+    const write = this.saving.then(() => this.write())
+    this.saving = write.catch(() => {})
+    await write
+    return this.current
+  }
+
+  private async write(): Promise<void> {
     await mkdir(dirname(this.file), { recursive: true })
     await writeFileAtomic(this.file, JSON.stringify(this.current, null, 2) + '\n')
-    return this.current
   }
 }

@@ -5,7 +5,13 @@ import { findNode, pathTo } from '../lib/tree'
 import { useApp } from '../store'
 import { ClockIcon, DotsIcon, StarIcon, WidthIcon } from './icons'
 import { Menu } from './menu/Menu'
-import { duplicatePageEntry, moveToEntry, trashEntry } from './pageActions'
+import {
+  copyPathEntry,
+  duplicatePageEntry,
+  moveToEntry,
+  revealEntry,
+  trashEntry
+} from './pageActions'
 import { PageIconView } from './PageIconView'
 
 export function TopBar({
@@ -79,6 +85,9 @@ export function TopBar({
             duplicatePageEntry(currentId),
             moveToEntry(currentId),
             trashEntry(currentId),
+            { kind: 'separator' },
+            revealEntry(currentId),
+            copyPathEntry(currentId),
             { kind: 'separator' },
             {
               kind: 'item',

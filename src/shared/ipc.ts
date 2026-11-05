@@ -101,6 +101,9 @@ export interface IpcContract {
   'page:move': [payload: { id: string; parentId: string | null; index: number }, result: void]
   'page:trash': [payload: { id: string }, result: void]
   'page:duplicate': [payload: { id: string }, result: PageNode]
+  'page:reveal': [payload: { id: string }, result: void]
+  /** Puts the page file's absolute path on the clipboard. */
+  'page:copyPath': [payload: { id: string }, result: void]
   'search:query': [payload: { query: string }, result: SearchHit[]]
   /** Ids of the pages linking to a page, by title. */
   'page:backlinks': [payload: { id: string }, result: string[]]

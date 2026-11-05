@@ -10,11 +10,13 @@ import {
 } from '../../components/icons'
 import type { MenuEntry } from '../../components/menu/model'
 import {
+  copyPathEntry,
   duplicatePageEntry,
   favoriteEntry,
   moveToEntry,
   openInTabEntry,
   renameEntry,
+  revealEntry,
   SHORTCUTS,
   trashEntry
 } from '../../components/pageActions'
@@ -153,6 +155,8 @@ function pageBlockEntries(
     renameEntry(() => options.rename(pageId, block.id)),
     { kind: 'separator' },
     openInTabEntry(pageId),
+    revealEntry(pageId),
+    copyPathEntry(pageId),
     { kind: 'separator' },
     duplicatePageEntry(pageId, { open: false }),
     moveToEntry(pageId),
