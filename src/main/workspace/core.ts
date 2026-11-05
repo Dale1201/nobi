@@ -50,7 +50,7 @@ export class WorkspaceCore {
   /** Pages whose current text the app wrote this session. */
   readonly owned = new Set<string>()
   /** Page files this session created for folders that had none; removed again if the folder goes away untouched. */
-  readonly stubs = new Map<string, string | null>()
+  readonly stubs = new Map<string, string>()
   readonly lastSnapshot = new Map<string, number>()
   readonly listeners = new Set<(event: WorkspaceEvent) => void>()
   stateText = ''

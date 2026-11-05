@@ -1,4 +1,4 @@
-import { readFile, readdir, unlink } from 'node:fs/promises'
+import { readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { insertId, splitFrontmatter, metaFromData } from '../../shared/core/page'
@@ -11,7 +11,7 @@ import {
   type PageRecord,
   type WorkspaceCore
 } from './core'
-import { exists, writeFileAtomic } from './fs-utils'
+import { writeFileAtomic } from './fs-utils'
 import { SNAPSHOT_INTERVAL_MS, type PageHistory } from './page-history'
 import { APP_DIR, STATE_FILE, loadState } from './state'
 
@@ -95,10 +95,9 @@ export class ExternalChanges {
       if (id === undefined) id = randomUUID()
       claimed.add(id)
       idOf.set(f, id)
-      if (core.stubs.get(f.path) === null) core.stubs.set(f.path, id)
       if (f.dataId === id) continue
       // A file another program is still writing would be cut short by writing the id now.
-      if (this.unsettled(f.mtime) && !(core.stubs.has(f.path) && f.text === '')) {
+      if (this.unsettled(f.mtime)) {
         unsettled.push(f.path)
         continue
       }
@@ -173,9 +172,15 @@ export class ExternalChanges {
       // macOS volumes are usually case-insensitive: "notes/" belongs to "Notes.md".
       const owned = [...files].some((f) => f.slice(0, -3).toLowerCase() === name.toLowerCase())
       const pageFile = joinPath(dir, `${name}.md`)
-      if (!owned && !(await exists(core.abs(pageFile)))) {
-        await writeFileAtomic(core.abs(pageFile), '')
-        core.stubs.set(pageFile, null)
+      if (owned) continue
+      // Born with its id and never rewritten, so a page file another program writes now is kept.
+      const id = randomUUID()
+      const made = await writeFile(core.abs(pageFile), insertId('', id), { flag: 'wx' }).then(
+        () => true,
+        () => false
+      )
+      if (made) {
+        core.stubs.set(pageFile, id)
         files.add(`${name}.md`)
       }
     }
@@ -224,7 +229,6 @@ export class ExternalChanges {
   /** Still exactly what the app wrote for the folder, carrying the id it gave it. */
   private isOwnStub(path: string, text: string): boolean {
     const id = this.core.stubs.get(path)
-    if (id === null) return text === ''
     const { data } = splitFrontmatter(text)
     return isStubText(text) && data !== null && metaFromData(data).id === id
   }
