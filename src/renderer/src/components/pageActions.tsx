@@ -111,7 +111,9 @@ export function copyPathEntry(id: string): MenuItemEntry {
     keywords: ['link', 'location'],
     icon: <LinkIcon size={16} />,
     onSelect: () =>
-      void api.invoke('page:copyPath', { id }).catch((e) => app().reportError('copy', e))
+      void api
+        .invoke('page:copyPath', { id })
+        .catch((e) => app().reportError('copy the path of', e))
   }
 }
 

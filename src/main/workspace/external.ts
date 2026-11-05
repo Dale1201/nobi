@@ -177,7 +177,10 @@ export class ExternalChanges {
       const id = randomUUID()
       const made = await writeFile(core.abs(pageFile), insertId('', id), { flag: 'wx' }).then(
         () => true,
-        () => false
+        (err: NodeJS.ErrnoException) => {
+          if (err.code === 'EEXIST') return false
+          throw err
+        }
       )
       if (made) {
         core.stubs.set(pageFile, id)
