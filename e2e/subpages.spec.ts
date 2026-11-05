@@ -181,6 +181,8 @@ test('restoring a sub-page right after typing in its parent keeps both the text 
   await page.getByTestId('sidebar-row-Plan').getByRole('button', { name: 'Expand' }).click()
   await rowAction(page, 'Step', 'Move to Trash')
   await waitForFile(join(nb.workspace, 'Plan.md'), /---\n\nBefore\n$/)
+  // The open page reloads without the link, remounting the editor; a click before that loses focus.
+  await expect(page.locator(`${editor} .nb-page-link-title`)).toHaveCount(0)
   await placeCaret(page.locator(editor).getByText('Before'))
   await caretToLineEnd(page)
   await page.keyboard.type(' typed')

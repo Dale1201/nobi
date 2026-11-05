@@ -16,6 +16,7 @@ import { APP_DIR } from './state'
 export const IMPORT_TITLE = 'Imported from Notion'
 export const REPORT_TITLE = 'Import report'
 const STAGING_PREFIX = 'import-'
+const WRITE_CONCURRENCY = 16
 
 /** Staging folders for imports, inside the workspace so landing is a rename. */
 export class PageImports {
@@ -99,6 +100,7 @@ export class PageImports {
           : href
       for (const [id, path] of paths) core.knownPaths.set(id, path)
 
+      const files: Array<[string, string]> = []
       for (const page of all) {
         const path = paths.get(page.id)!
         const blocks = mapBlockLinks(page.blocks, remap)
@@ -117,10 +119,13 @@ export class PageImports {
         const text = serializePage(meta, core.toFileBlocks(path, blocks))
         texts.set(page.id, text)
         if (page.id !== rootId) indexed.set(page.id, blocksText(blocks))
-        const file = join(out, ...path.split('/'))
+        files.push([join(out, ...path.split('/')), text])
+      }
+      // Each write waits on its own fsync, so one at a time is slow on a busy disk.
+      await inPool(files, WRITE_CONCURRENCY, async ([file, text]) => {
         await mkdir(dirname(file), { recursive: true })
         await writeFileAtomic(file, text)
-      }
+      })
       await rename(join(out, rootStem), core.abs(rootStem))
       undo.push(() => rename(core.abs(rootStem), join(out, rootStem)))
       await rename(join(out, rootPath), core.abs(rootPath))
@@ -272,4 +277,27 @@ function reportBlocks(manifest: ImportManifest, now: Date): Block[] {
     }
   }
   return blocks
+}
+
+/** Runs `work` on at most `size` items at a time; a failure stops the rest once those running end. */
+async function inPool<T>(
+  items: T[],
+  size: number,
+  work: (item: T) => Promise<void>
+): Promise<void> {
+  let next = 0
+  let failed = false
+  const worker = async (): Promise<void> => {
+    while (!failed && next < items.length) {
+      await work(items[next++]).catch((err: unknown) => {
+        failed = true
+        throw err
+      })
+    }
+  }
+  const results = await Promise.allSettled(
+    Array.from({ length: Math.min(size, items.length) }, worker)
+  )
+  const rejected = results.find((r) => r.status === 'rejected')
+  if (rejected) throw rejected.reason
 }

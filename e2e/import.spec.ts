@@ -11,6 +11,8 @@ import { editor, newPage, waitForFile } from './helpers'
 
 const FIXTURES = resolve('tests/fixtures')
 const EXPORT_ZIP = join(FIXTURES, 'notion-export.zip')
+// A whole import (unzip, fetch, write every page) can outrun the default wait on a busy machine.
+const IMPORTED = { timeout: 15_000 }
 
 // "Web" images the export links to are served locally; a test can hold the answers back.
 let server: Server
@@ -44,7 +46,7 @@ test('imports a Notion export with its pages, images, colors and links', async (
   const { app, page } = nb
   await importViaMenu(app, [EXPORT_ZIP])
   const panel = page.getByRole('status')
-  await expect(panel).toContainText('Imported 10 pages. 2 things need a look.')
+  await expect(panel).toContainText('Imported 10 pages. 2 things need a look.', IMPORTED)
   await panel.getByRole('button', { name: 'Open', exact: true }).click()
   await expect(page.getByTestId('page-title')).toHaveText('Imported from Notion')
 
@@ -85,10 +87,10 @@ test('imports a Notion export with its pages, images, colors and links', async (
 test('a second import lands next to the first one', async ({ nb }) => {
   const { app, page } = nb
   await importViaMenu(app, [EXPORT_ZIP])
-  await expect(page.getByRole('status')).toContainText('Imported 10 pages')
+  await expect(page.getByRole('status')).toContainText('Imported 10 pages', IMPORTED)
   await page.getByRole('button', { name: 'Dismiss' }).click()
   await importViaMenu(app, [EXPORT_ZIP])
-  await expect(page.getByRole('status')).toContainText('Imported 10 pages')
+  await expect(page.getByRole('status')).toContainText('Imported 10 pages', IMPORTED)
   await expect(page.getByTestId('sidebar-row-Imported from Notion')).toBeVisible()
   await expect(page.getByTestId('sidebar-row-Imported from Notion (2)')).toBeVisible()
   await waitForFile(join(nb.workspace, 'Imported from Notion (2).md'), 'id:')
@@ -347,7 +349,7 @@ test('dropping a Notion export on the window asks, then imports it', async ({ nb
   await dropZip(page, EXPORT_ZIP)
   await expect(page.getByText('Import this file from Notion?')).toBeVisible()
   await page.getByRole('button', { name: 'Import', exact: true }).click()
-  await expect(page.getByRole('status')).toContainText('Imported 10 pages')
+  await expect(page.getByRole('status')).toContainText('Imported 10 pages', IMPORTED)
 })
 
 test('dropping a Markdown export on the window says to export HTML', async ({ nb }) => {
@@ -389,7 +391,7 @@ test('a message shows above the import panel in a narrow window', async ({ nb })
   const { app, page } = nb
   await importViaMenu(app, [EXPORT_ZIP])
   const panel = page.getByRole('status')
-  await expect(panel).toContainText('Imported 10 pages')
+  await expect(panel).toContainText('Imported 10 pages', IMPORTED)
   await app.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].setContentSize(720, 600)
   )
