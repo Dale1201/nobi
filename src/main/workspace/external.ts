@@ -182,10 +182,8 @@ export class ExternalChanges {
           throw err
         }
       )
-      if (made) {
-        core.stubs.set(pageFile, id)
-        files.add(`${name}.md`)
-      }
+      if (made) core.stubs.set(pageFile, id)
+      files.add(`${name}.md`)
     }
     for (const file of [...files]) {
       const path = joinPath(dir, file)
