@@ -28,7 +28,7 @@ describe('canonical markdown survives a round trip', () => {
     calloutColors: '> [!callout:red:blue_bg] 🚀\n> Launch\n',
     calloutChildren: '> [!callout] 💡\n> Lead\n>\n> - item\n',
     calloutNoIcon: '> [!callout]\n> Plain\n',
-    calloutImageIcon: '> [!callout] /attachments/my icon.png\n> Custom\n',
+    calloutImageIcon: '> [!callout] /attachments/my%20icon.png\n> Custom\n',
     divider: 'a\n\n---\n\nb\n',
     code: '```ts\nconst a = 1\n```\n',
     codeNoLang: '```\nplain\n```\n',

@@ -74,8 +74,9 @@
   margin-left: 30px;
 }
 
-.bn-block:has(> .react-renderer > .bn-block-content[data-content-type='callout'])
-  :not(:has(> .react-renderer .nb-callout-icon))
+.bn-block:has(> .react-renderer > .bn-block-content[data-content-type='callout']):not(
+    :has(> .react-renderer .nb-callout-icon)
+  )
   > .bn-block-group {
   margin-left: 0;
 }
@@ -821,6 +822,7 @@
   user-select: text;
 }
 .nb-writer-reply > :first-child {
+  margin-top: 0;
 }
 .nb-writer-reply > :last-child {
   margin-bottom: 0;

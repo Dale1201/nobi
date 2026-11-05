@@ -125,6 +125,26 @@ test('clicking a callout icon changes or removes it', async ({ nb }) => {
   await waitForFile(join(workspace, 'Notes.md'), '> [!callout]\n> Heads up')
 })
 
+test('callout children line up with the text, or the edge when there is no icon', async ({
+  nb
+}) => {
+  await writeFile(
+    join(nb.workspace, 'Boxes.md'),
+    '> [!callout] 💡\n> With icon\n>\n> - outer\n>   - inner\n\n> [!callout]\n> No icon\n>\n> Child\n'
+  )
+  const page = await nb.relaunch()
+  await page.getByTestId('sidebar-row-Boxes').click()
+  await expect(page.locator(editor)).toContainText('Child')
+  const indent = (text: string): Promise<number> =>
+    page
+      .locator(editor)
+      .getByText(text, { exact: true })
+      .evaluate((el) => parseFloat(getComputedStyle(el.closest('.bn-block-group')!).marginLeft))
+  expect(await indent('outer')).toBe(30)
+  expect(await indent('inner')).toBeGreaterThan(0)
+  expect(await indent('Child')).toBe(0)
+})
+
 test('slash menu inserts a callout and a sub-page', async ({ nb }) => {
   const { page, workspace } = nb
   await page.getByRole('button', { name: 'New page' }).first().click()

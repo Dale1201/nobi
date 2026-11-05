@@ -1,8 +1,20 @@
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFileAtomic } from './fs-utils'
+
+const noHardLinks = vi.hoisted(() => ({ on: false }))
+vi.mock('node:fs/promises', async (original) => {
+  const fs = await original<typeof import('node:fs/promises')>()
+  return {
+    ...fs,
+    link: (from: string, to: string) =>
+      noHardLinks.on
+        ? Promise.reject(Object.assign(new Error('not supported'), { code: 'ENOTSUP' }))
+        : fs.link(from, to)
+  }
+})
 
 describe('createFileAtomic', () => {
   let dir: string
@@ -22,5 +34,17 @@ describe('createFileAtomic', () => {
     expect(await createFileAtomic(join(dir, 'A.md'), 'stub\n')).toBe(false)
     expect(await readFile(join(dir, 'A.md'), 'utf8')).toBe('Intro.\n\nOutro.\n')
     expect(await readdir(dir)).toEqual(['A.md'])
+  })
+
+  it('still creates only if absent on a volume without hard links', async () => {
+    noHardLinks.on = true
+    try {
+      expect(await createFileAtomic(join(dir, 'A.md'), 'stub\n')).toBe(true)
+      expect(await createFileAtomic(join(dir, 'A.md'), 'other\n')).toBe(false)
+      expect(await readFile(join(dir, 'A.md'), 'utf8')).toBe('stub\n')
+      expect(await readdir(dir)).toEqual(['A.md'])
+    } finally {
+      noHardLinks.on = false
+    }
   })
 })

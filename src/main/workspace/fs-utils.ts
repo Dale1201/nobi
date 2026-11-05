@@ -1,4 +1,4 @@
-import { link, open, rename, unlink, stat, readdir, rmdir } from 'node:fs/promises'
+import { link, open, rename, unlink, stat, readdir, rmdir, writeFile } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { basename, dirname, join } from 'node:path'
 
@@ -19,8 +19,17 @@ export async function createFileAtomic(path: string, data: string | Uint8Array):
     await link(tmp, path)
     return true
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false
-    throw err
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'EEXIST') return false
+    // exFAT, FAT and SMB volumes have no hard links; an exclusive create is the next best.
+    if (code !== 'ENOTSUP' && code !== 'EPERM' && code !== 'ENOSYS' && code !== 'EXDEV') throw err
+    return writeFile(path, data, { flag: 'wx' }).then(
+      () => true,
+      (e: NodeJS.ErrnoException) => {
+        if (e.code === 'EEXIST') return false
+        throw e
+      }
+    )
   } finally {
     await unlink(tmp).catch(() => {})
   }
