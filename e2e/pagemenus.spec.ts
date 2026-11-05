@@ -41,6 +41,8 @@ test('a sub-page block menu has page actions with their shortcuts', async ({ nb 
     'Add to Favorites',
     'Rename',
     'Open in new tab',
+    'Reveal in Finder',
+    'Copy file path',
     'Duplicate',
     'Move to',
     'Move to Trash',
@@ -194,7 +196,9 @@ test('sidebar page menu: header, Move to Trash, and shortcuts', async ({ nb }) =
     'Rename',
     'Move to',
     'Move to Trash',
-    'Open in new tab'
+    'Open in new tab',
+    'Reveal in Finder',
+    'Copy file path'
   ])
   await page.keyboard.press('Meta+Shift+r')
   await expect(page.getByTestId('sidebar-row-Alpha').locator('.rename-input')).toBeFocused()
@@ -222,6 +226,8 @@ test('top bar page menu: search, Move to, Move to Trash, and a Full width check'
     'Duplicate',
     'Move to',
     'Move to Trash',
+    'Reveal in Finder',
+    'Copy file path',
     'Full width',
     'Page history'
   ])
@@ -236,3 +242,27 @@ test('top bar page menu: search, Move to, Move to Trash, and a Full width check'
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('sidebar-row-Top')).toHaveCount(0)
 })
+
+test(
+  'Copy file path and Reveal in Finder act on the page file',
+  { tag: '@clipboard' },
+  async ({ nb }) => {
+    const page = await withSubPage(nb)
+    const file = join(nb.workspace, 'Aztec', 'Plan.md')
+    await nb.app.evaluate(({ shell }) => {
+      const g = globalThis as { revealed?: string }
+      shell.showItemInFolder = (path) => void (g.revealed = path)
+    })
+    const row = page.getByTestId('sidebar-row-Plan')
+    await row.hover()
+    await row.getByRole('button', { name: 'Page actions' }).click()
+    await page.getByRole('menuitem', { name: 'Copy file path' }).click()
+    await expect.poll(() => nb.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(file)
+
+    await openBlockMenu(page, pageBlock)
+    await page.getByRole('menuitem', { name: 'Reveal in Finder' }).click()
+    await expect
+      .poll(() => nb.app.evaluate(() => (globalThis as { revealed?: string }).revealed))
+      .toBe(file)
+  }
+)

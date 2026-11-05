@@ -476,6 +476,11 @@ export class Workspace {
     core.emit({ type: 'page', id, revision })
   }
 
+  /** Queued, so a rename or move still in flight lands first. */
+  pageFile(id: string): Promise<string> {
+    return this.run(async () => this.core.abs(this.core.record(id).path))
+  }
+
   // ---------- trash ----------
 
   trashPage(id: string): Promise<void> {

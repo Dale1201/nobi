@@ -151,6 +151,8 @@ export function registerHandlers(ctx: AppContext): void {
     'page:duplicate',
     mutate((w, { id }) => w.duplicatePage(id))
   )
+  handle('page:reveal', async ({ id }) => shell.showItemInFolder(await ws().pageFile(id)))
+  handle('page:copyPath', async ({ id }) => clipboard.writeText(await ws().pageFile(id)))
   handle(
     'page:favorite',
     mutate((w, { id, favorite }) => w.setFavorite(id, favorite))
