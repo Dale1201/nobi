@@ -4,9 +4,10 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   fullyParallel: true,
+  forbidOnly: !!process.env.CI,
   // Playwright's default of half the cores leaves CI's 3-core macOS runners at one worker.
   workers: process.env.CI ? 3 : undefined,
-  reporter: 'list',
+  reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: { trace: 'retain-on-failure' },
   projects: [
     { name: 'app', grepInvert: /@clipboard/ },

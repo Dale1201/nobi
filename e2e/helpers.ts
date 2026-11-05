@@ -1,7 +1,9 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ElectronApplication, Locator, Page } from '@playwright/test'
-import { expect } from './fixtures'
+import type { IpcProbe } from '../src/main/ipc'
+import { SAVE_DELAY_MS } from '../src/shared/editor'
+import { expect, type AppFixture, type Seed } from './fixtures'
 
 export const editor = '.bn-editor'
 
@@ -39,27 +41,17 @@ export async function rowAction(page: Page, title: string, action: string): Prom
   await page.getByRole('menuitem', { name: action, exact: true }).click()
 }
 
-/** Writes a page file, relaunches so the app reads it, and opens it. */
+/** Starts the app on a workspace holding one page and opens it. */
 export async function openFile(
-  nb: { workspace: string; relaunch: () => Promise<Page> },
+  nbWith: (seed: Seed) => Promise<AppFixture>,
   name: string,
-  body: string
-): Promise<Page> {
-  await writeFile(join(nb.workspace, `${name}.md`), body)
-  const page = await nb.relaunch()
-  await page.getByTestId(`sidebar-row-${name}`).click()
-  await expect(page.locator(editor)).toBeVisible()
-  return page
-}
-
-/** Clicks a native menu item; Playwright's key presses never reach the menu. */
-export async function clickMenuItem(app: ElectronApplication, label: string): Promise<void> {
-  await app.evaluate(({ Menu }, label) => {
-    Menu.getApplicationMenu()
-      ?.items.flatMap((i) => i.submenu?.items ?? [])
-      .find((i) => i.label === label)
-      ?.click()
-  }, label)
+  body: string,
+  seed: Seed = {}
+): Promise<AppFixture> {
+  const nb = await nbWith({ ...seed, files: { ...seed.files, [`${name}.md`]: body } })
+  await nb.page.getByTestId(`sidebar-row-${name}`).click()
+  await expect(nb.page.locator(editor)).toBeVisible()
+  return nb
 }
 
 /** Clicks an application menu item by label, hidden ones included, as its accelerator would. */
@@ -80,11 +72,156 @@ export async function menu(app: ElectronApplication, label: string): Promise<voi
   expect(found, `menu item ${label}`).toBe(true)
 }
 
+/** Every application menu item's accelerator, by label. */
+export function accelerators(app: ElectronApplication): Promise<Record<string, string>> {
+  return app.evaluate(({ Menu }) => {
+    const out: Record<string, string> = {}
+    const walk = (items: Electron.MenuItem[]): void => {
+      for (const item of items) {
+        if (item.accelerator) out[item.label] = item.accelerator
+        if (item.submenu) walk(item.submenu.items)
+      }
+    }
+    walk(Menu.getApplicationMenu()?.items ?? [])
+    return out
+  })
+}
+
+/** Makes the app's next native open dialog answer with these paths. */
+export async function stubOpenDialog(app: ElectronApplication, filePaths: string[]): Promise<void> {
+  await app.evaluate(({ dialog }, filePaths) => {
+    dialog.showOpenDialog = (async () => ({
+      canceled: false,
+      filePaths
+    })) as typeof dialog.showOpenDialog
+  }, filePaths)
+}
+
+export const activePane = (page: Page): Locator => page.locator('.tab-pane.active')
+
+/** The frontmatter of a page file, once the app has given the page its id. */
+export async function frontmatter(file: string): Promise<string> {
+  return /^---\n[\s\S]*?\n---\n/.exec(await waitForFile(file, /^---\n(?:.*\n)*?id: /))![0]
+}
+
+/** Opens the block menu of the first block matching `block`, a selector or a block's text. */
+export async function openBlockMenu(
+  page: Page,
+  block: { selector: string } | string
+): Promise<void> {
+  const target =
+    typeof block === 'string'
+      ? page.locator(`${editor} .bn-block-content`, { hasText: block })
+      : page.locator(block.selector)
+  await target.first().hover()
+  await page.getByRole('button', { name: 'Block menu' }).click()
+  await expect(page.getByRole('menu')).toBeVisible()
+}
+
+/** How many times the renderer has invoked this IPC channel since launch. */
+export function ipcCalls(app: ElectronApplication, channel: string): Promise<number> {
+  return app.evaluate(
+    (_electron, channel) => (globalThis as { nbIpc?: IpcProbe }).nbIpc!.calls[channel] ?? 0,
+    channel
+  )
+}
+
+/** Makes every call to this IPC channel fail, as a broken disk or keychain would. */
+export async function failIpc(app: ElectronApplication, channel: string): Promise<void> {
+  await app.evaluate((_electron, channel) => {
+    ;(globalThis as { nbIpc?: IpcProbe }).nbIpc!.wrap[channel] = async () => {
+      throw new Error(`${channel} failed for the test`)
+    }
+  }, channel)
+}
+
+export interface IpcTrace {
+  /** Calls made since the trace began, and how many of them have answered. */
+  counts(): Promise<{ started: number; finished: number }>
+  /** Lets held calls run, in the order they were made. */
+  release(): Promise<void>
+}
+
+/** Follows calls to one IPC channel; with `held`, they wait in order until released. */
+export async function traceIpc(
+  app: ElectronApplication,
+  channel: string,
+  { held = false } = {}
+): Promise<IpcTrace> {
+  await app.evaluate(
+    (_electron, { channel, held }) => {
+      type Trace = { started: number; finished: number; release: () => void }
+      const g = globalThis as { nbIpc?: IpcProbe; nbTraces?: Record<string, Trace> }
+      const trace: Trace = { started: 0, finished: 0, release: () => {} }
+      let queue: Promise<unknown> = held
+        ? new Promise<void>((r) => (trace.release = r))
+        : Promise.resolve()
+      g.nbTraces = { ...g.nbTraces, [channel]: trace }
+      g.nbIpc!.wrap[channel] = (call) => {
+        trace.started++
+        const run = queue.then(call).finally(() => trace.finished++)
+        queue = run.catch(() => undefined)
+        return run
+      }
+    },
+    { channel, held }
+  )
+  type Traces = {
+    nbTraces: Record<string, { started: number; finished: number; release: () => void }>
+  }
+  return {
+    counts: () =>
+      app.evaluate((_electron, channel) => {
+        const { started, finished } = (globalThis as unknown as Traces).nbTraces[channel]
+        return { started, finished }
+      }, channel),
+    release: () =>
+      app.evaluate((_electron, channel) => {
+        ;(globalThis as unknown as Traces).nbTraces[channel].release()
+      }, channel)
+  }
+}
+
+/**
+ * Resolves once every save the editors had queued has reached the main process: a timer set
+ * now fires after the editors' save debounce, and IPC keeps its order. `workspace:current` is
+ * the round trip that still answers when no folder is open.
+ */
+export async function afterPendingSaves(page: Page): Promise<void> {
+  await page.evaluate(
+    (delay) =>
+      new Promise((resolve) => setTimeout(resolve, delay)).then(() =>
+        window.api.invoke('workspace:current', undefined)
+      ),
+    SAVE_DELAY_MS
+  )
+}
+
+export const AI_PAGE = 'Intro.\n\nWe spent the hour arguing about launch.\n\nOutro.\n'
+/** The Writer's diff and kept selection; the editor itself carries nb-ai-available. */
+export const AI_MARKS = '.nb-ai-added, .nb-ai-removed, .nb-ai-added-block, .nb-ai-removed-block'
+
+/** Starts with the AI key saved and Notes open, its id written. */
+export async function openAiPage(
+  nbWith: (seed: Seed) => Promise<AppFixture>,
+  body = AI_PAGE,
+  { files, aiKey = true }: Seed = {}
+): Promise<AppFixture> {
+  const nb = await nbWith({
+    files: { 'Other.md': 'Elsewhere.\n', ...files, 'Notes.md': body },
+    aiKey
+  })
+  await nb.page.getByTestId('sidebar-row-Notes').click()
+  await expect(nb.page.locator(editor)).toContainText('Outro.')
+  await waitForFile(join(nb.workspace, 'Notes.md'), /^---\nid: /)
+  return nb
+}
+
 /** A menu click reaches the window later, so this waits for the new tab before anything acts on it. */
 export async function newTab(app: ElectronApplication, page: Page): Promise<void> {
   const tabs = page.locator('.tab')
   const count = await tabs.count()
-  await clickMenuItem(app, 'New Tab')
+  await menu(app, 'New Tab')
   await expect(tabs).toHaveCount(count + 1)
 }
 

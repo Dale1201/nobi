@@ -161,48 +161,43 @@ describe('Edits made outside the app', () => {
   })
 
   it('waits until a file another program is writing has settled before adding its id', async () => {
-    await write('Copying.md', 'first half')
-    const ws = await Workspace.open(root, { settleMs: 300 })
-    expect(ws.tree()).toEqual([])
-    expect(await read('Copying.md')).toBe('first half')
-    const arrived = new Promise<void>((resolve) =>
-      ws.onEvent((e) => e.type === 'tree' && ws.tree().length > 0 && resolve())
-    )
-    await write('Copying.md', 'first half, second half\n')
-    await arrived
-    expect(ws.tree()[0].title).toBe('Copying')
-    expect(await read('Copying.md')).toMatch(
-      /^---\nid: [0-9a-f-]{36}\n---\n\nfirst half, second half\n$/
-    )
-    ws.close()
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    try {
+      await write('Copying.md', 'first half')
+      const ws = await Workspace.open(root, { settleMs: 60_000 })
+      expect(ws.tree()).toEqual([])
+      expect(await read('Copying.md')).toBe('first half')
+      await write('Copying.md', 'first half, second half\n')
+      const past = new Date(Date.now() - 120_000)
+      await utimes(join(root, 'Copying.md'), past, past)
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(ws.tree().map((n) => n.title)).toEqual(['Copying']))
+      expect(await read('Copying.md')).toMatch(
+        /^---\nid: [0-9a-f-]{36}\n---\n\nfirst half, second half\n$/
+      )
+      ws.close()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
-  it('keeps a page whose id line was dropped the same page, even through a full rescan', async () => {
-    const ws = await Workspace.open(root, { settleMs: 300 })
+  it('restores a dropped id line on the same page, without calling that an outside change', async () => {
+    const ws = await Workspace.open(root, { settleMs: 100 })
     const id = await namedPage(ws, 'Note')
     await ws.setFavorite(id, true)
+    const before = (await ws.readPage(id)).revision
     await write('Note.md', 'Rewritten without frontmatter\n')
     await ws.reconcile([change('Note.md'), { kind: 'add', path: 'Other.md' }])
     expect(ws.tree()[0].id).toBe(id)
     expect(ws.favorites()).toEqual([id])
-    // Every rescan reports a tree change, and an unsettled file waits for a later one.
-    await vi.waitFor(async () =>
-      expect(await read('Note.md')).toBe(`---\nid: ${id}\n---\n\nRewritten without frontmatter\n`)
+    // The unsettled file is rescanned later; the revision moves once the restored text is taken in.
+    await vi.waitFor(
+      async () => {
+        expect(await read('Note.md')).toBe(`---\nid: ${id}\n---\n\nRewritten without frontmatter\n`)
+        expect((await ws.readPage(id)).revision).toBe(before + 1)
+      },
+      { timeout: 5000 }
     )
-    ws.close()
-  })
-
-  it('does not report its own id restoration as an outside change', async () => {
-    const ws = await Workspace.open(root, { settleMs: 300 })
-    const id = await namedPage(ws, 'Note')
-    const before = (await ws.readPage(id)).revision
-    await write('Note.md', 'Rewritten without frontmatter\n')
-    await ws.reconcile([change('Note.md'), { kind: 'add', path: 'Other.md' }])
-    // The revision moves once the restored text is taken in, just after the file is written.
-    await vi.waitFor(async () => {
-      expect(await read('Note.md')).toContain(`id: ${id}`)
-      expect((await ws.readPage(id)).revision).toBe(before + 1)
-    })
     const doc = await ws.readPage(id)
     expect(await ws.writePage(id, [text('mine')], { revision: doc.revision })).toMatchObject({
       ok: true
@@ -215,7 +210,7 @@ describe('Edits made outside the app', () => {
     await write('Future.md', 'From a skewed clock\n')
     const ahead = new Date(Date.now() + 3600_000)
     await utimes(file, ahead, ahead)
-    const ws = await Workspace.open(root, { settleMs: 300 })
+    const ws = await Workspace.open(root, { settleMs: 100 })
     try {
       expect(ws.tree().map((n) => n.title)).toEqual(['Future'])
       expect(await read('Future.md')).toMatch(/^---\nid: [0-9a-f-]{36}\n---\n/)
@@ -229,7 +224,7 @@ describe('Edits made outside the app', () => {
     await write('Folder/Child.md', '---\nid: child-1\n---\n\nHi\n')
     const past = new Date(Date.now() - 3600_000)
     await utimes(join(root, 'Folder', 'Child.md'), past, past)
-    const ws = await Workspace.open(root, { settleMs: 300 })
+    const ws = await Workspace.open(root, { settleMs: 100 })
     try {
       expect(ws.tree().map((n) => [n.title, n.children.length])).toEqual([['Folder', 1]])
     } finally {
@@ -346,10 +341,11 @@ describe('Edits made outside the app', () => {
 
   it('on opening, gives a conflicted copy a fresh id rather than the older original', async () => {
     const same = '---\nid: 11111111-1111-4111-8111-111111111111\n---\n\nPlan\n'
-    await write('Plan.md', same)
-    // The copy sorts first by name but was created later.
-    await new Promise((resolve) => setTimeout(resolve, 20))
     await write('Plan (conflicted copy).md', same)
+    await write('Plan.md', same)
+    // The copy sorts first by name but was created later; on APFS an earlier mtime moves birth back.
+    const past = new Date(Date.now() - 3600_000)
+    await utimes(join(root, 'Plan.md'), past, past)
     const { ws } = await opened()
     const byTitle = Object.fromEntries(ws.tree().map((n) => [n.title, n.id]))
     expect(byTitle['Plan']).toBe('11111111-1111-4111-8111-111111111111')

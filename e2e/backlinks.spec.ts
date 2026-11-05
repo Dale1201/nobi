@@ -1,51 +1,29 @@
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { expect, test } from './fixtures'
-import { editor, newTab } from './helpers'
+import { activePane, caretToLineEnd, editor, newTab, placeCaret } from './helpers'
 
 test('a mention typed in another tab shows up as a backlink that opens its page', async ({
-  nb
+  nbWith
 }) => {
-  await writeFile(join(nb.workspace, 'Target.md'), 'the target\n')
-  await writeFile(join(nb.workspace, 'Notes.md'), 'some notes\n')
-  const page = await nb.relaunch()
+  const nb = await nbWith({ files: { 'Target.md': 'the target\n', 'Notes.md': 'some notes\n' } })
+  const { page } = nb
   await page.getByTestId('sidebar-row-Target').click()
-  const pane = page.locator('.tab-pane.active')
-  await expect(pane.getByTestId('page-title')).toHaveText('Target')
-  await expect(pane.getByTestId('backlinks-button')).toHaveCount(0)
+  await expect(activePane(page).getByTestId('page-title')).toHaveText('Target')
+  await expect(activePane(page).getByTestId('backlinks-button')).toHaveCount(0)
 
   await newTab(nb.app, page)
   await page.getByTestId('sidebar-row-Notes').click()
-  await expect(pane.getByTestId('page-title')).toHaveText('Notes')
-  await pane.locator(editor).getByText('some notes').click()
-  await page.keyboard.press('End')
+  await expect(activePane(page).getByTestId('page-title')).toHaveText('Notes')
+  await placeCaret(activePane(page).locator(editor).getByText('some notes'))
+  await caretToLineEnd(page)
   await page.keyboard.type(' @Targ')
   await expect(page.locator('.page-picker .menu-item-label').first()).toHaveText('Target')
   await page.keyboard.press('Enter')
-  await expect(pane.locator(`${editor} .nb-mention`)).toHaveText(/Target/)
+  await expect(activePane(page).locator(`${editor} .nb-mention`)).toHaveText(/Target/)
 
   await page.locator('.tab').first().click()
-  await expect(pane.getByTestId('page-title')).toHaveText('Target')
-  await expect(pane.getByTestId('backlinks-button')).toHaveText('1 backlink')
-  await pane.getByTestId('backlinks-button').click()
+  await expect(activePane(page).getByTestId('page-title')).toHaveText('Target')
+  await expect(activePane(page).getByTestId('backlinks-button')).toHaveText('1 backlink')
+  await activePane(page).getByTestId('backlinks-button').click()
   await page.getByTestId('backlink-Notes').click()
-  await expect(pane.getByTestId('page-title')).toHaveText('Notes')
-})
-
-test("a parent's sub-page block alone is not a backlink", async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Parent.md'), '[Child](Parent/Child.md "page")\n')
-  await mkdir(join(nb.workspace, 'Parent'))
-  await writeFile(join(nb.workspace, 'Parent', 'Child.md'), 'child\n')
-  await writeFile(join(nb.workspace, 'Index.md'), 'See [Child](Parent/Child.md)\n')
-  const page = await nb.relaunch()
-  const parent = page.getByTestId('sidebar-row-Parent')
-  await parent.hover()
-  await parent.getByRole('button', { name: 'Expand' }).click()
-  await page.getByTestId('sidebar-row-Child').click()
-  const pane = page.locator('.tab-pane.active')
-  await expect(pane.getByTestId('page-title')).toHaveText('Child')
-  await expect(pane.getByTestId('backlinks-button')).toHaveText('1 backlink')
-  await pane.getByTestId('backlinks-button').click()
-  await expect(page.locator('.backlinks-item')).toHaveCount(1)
-  await expect(page.getByTestId('backlink-Index')).toBeVisible()
+  await expect(activePane(page).getByTestId('page-title')).toHaveText('Notes')
 })

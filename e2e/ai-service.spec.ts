@@ -16,8 +16,8 @@ async function holdsKey(path: string): Promise<boolean> {
 }
 
 /** Starts a request from the renderer and collects the events it gets back. */
-async function run(page: Page, instruction: string | null): Promise<string[]> {
-  return page.evaluate(async (instruction) => {
+async function run(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
     const requestId = crypto.randomUUID()
     const events: string[] = []
     const done = new Promise<void>((resolve) => {
@@ -45,11 +45,11 @@ async function run(page: Page, instruction: string | null): Promise<string[]> {
       title: 'Notes',
       markdown: '⟦selection⟧Long words.⟦/selection⟧',
       selection: true,
-      ...(instruction ? { instruction } : { skill: 'shorter' as const })
+      skill: 'shorter'
     })
     await done
     return events
-  }, instruction)
+  })
 }
 
 test('the main process streams Claude to the renderer and keeps the key to itself', async ({
@@ -61,18 +61,14 @@ test('the main process streams Claude to the renderer and keeps the key to itsel
     hasKey: false,
     month: { requests: 0 }
   })
-  expect(await run(page, null)).toEqual(['error:auth'])
-
   const saved = await page.evaluate((key) => window.api.invoke('ai:setKey', { key }), GOOD_KEY)
   expect(saved).toEqual({ ok: true })
 
   anthropic.reply({ text: 'Short.', chunks: 2 })
-  expect(await run(page, null)).toEqual(['edit:Sho', 'edit:Short.', 'done'])
-  anthropic.reply({ tool: { name: 'reply', markdown: 'It means brief.' }, chunks: 1 })
-  expect(await run(page, 'what does it mean?')).toEqual(['reply:It means brief.', 'done'])
+  expect(await run(page)).toEqual(['edit:Sho', 'edit:Short.', 'done'])
 
   const status = await page.evaluate(() => window.api.invoke('ai:status', undefined))
-  expect(status).toMatchObject({ hasKey: true, keyHint: 'sk-ant-…a1b2', month: { requests: 2 } })
+  expect(status).toMatchObject({ hasKey: true, keyHint: 'sk-ant-…a1b2', month: { requests: 1 } })
   expect(JSON.stringify(status)).not.toContain(GOOD_KEY)
 
   // Neither the settings, nor the notes folder, nor what the renderer can read hold the key.

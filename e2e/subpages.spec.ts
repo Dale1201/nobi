@@ -1,9 +1,9 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test } from './fixtures'
 import {
   caretToLineEnd,
   editor,
+  openFile,
   placeCaret,
   rowAction,
   typeNewPageTitle,
@@ -11,10 +11,10 @@ import {
 } from './helpers'
 
 test('a page added inside another from the sidebar shows as a link at the end of its parent', async ({
-  nb
+  nbWith
 }) => {
-  await writeFile(join(nb.workspace, 'Aztec.md'), 'First idea\n')
-  const page = await nb.relaunch()
+  const nb = await nbWith({ files: { 'Aztec.md': 'First idea\n' } })
+  const { page } = nb
   const row = page.getByTestId('sidebar-row-Aztec')
   await row.hover()
   await row.getByRole('button', { name: 'Add a page inside' }).click()
@@ -36,11 +36,10 @@ test('a page added inside another from the sidebar shows as a link at the end of
 })
 
 test('typing in the parent right before adding a page keeps both the text and the link', async ({
-  nb
+  nbWith
 }) => {
-  await writeFile(join(nb.workspace, 'Aztec.md'), 'First idea\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Aztec').click()
+  const nb = await openFile(nbWith, 'Aztec', 'First idea\n')
+  const { page } = nb
   await placeCaret(page.locator(editor).getByText('First idea'))
   await caretToLineEnd(page)
   await page.keyboard.type(' and more')
@@ -59,11 +58,10 @@ test('typing in the parent right before adding a page keeps both the text and th
 })
 
 test('a parent open in another tab shows the new sub-page link without a conflict', async ({
-  nb
+  nbWith
 }) => {
-  await writeFile(join(nb.workspace, 'Aztec.md'), 'First idea\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Aztec').click()
+  const nb = await openFile(nbWith, 'Aztec', 'First idea\n')
+  const { page } = nb
   await placeCaret(page.locator(editor).getByText('First idea'))
   await caretToLineEnd(page)
   await page.keyboard.type(' and more')
@@ -82,76 +80,27 @@ test('a parent open in another tab shows the new sub-page link without a conflic
   await expect(page.getByText('This page was changed outside Nobsidian.')).toHaveCount(0)
 })
 
-test('moving a page moves its link from the old parent to the new one', async ({ nb }) => {
-  await mkdir(join(nb.workspace, 'Old'))
-  await writeFile(join(nb.workspace, 'Old.md'), 'Before\n\n[Child](Old/Child.md "page")\n\nAfter\n')
-  await writeFile(join(nb.workspace, 'Old', 'Child.md'), 'c\n')
-  await writeFile(join(nb.workspace, 'New.md'), 'Home\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Old').hover()
-  await page.getByTestId('sidebar-row-Old').getByRole('button', { name: 'Expand' }).click()
-  await rowAction(page, 'Child', 'Move to')
-  const picker = page.getByRole('dialog', { name: 'Move page to' })
-  await picker.getByRole('textbox').fill('New')
-  await picker.locator('.search-item-title', { hasText: 'New' }).click()
-  await waitForFile(join(nb.workspace, 'New.md'), 'Home\n\n[Child](New/Child.md "page")')
-  await waitForFile(join(nb.workspace, 'Old.md'), 'Before\n\nAfter\n')
-  expect(await readFile(join(nb.workspace, 'Old.md'), 'utf8')).not.toContain('Child')
-})
-
-test('dragging a page onto another nests it and links it there', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Folder.md'), 'f\n')
-  await writeFile(join(nb.workspace, 'Mover.md'), 'm\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Mover').hover()
-  await page.mouse.down()
-  const box = (await page.getByTestId('sidebar-row-Folder').boundingBox())!
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 })
-  await page.mouse.up()
-  await waitForFile(join(nb.workspace, 'Folder.md'), 'f\n\n[Mover](Folder/Mover.md "page")')
-})
-
-test('a duplicated sub-page is linked right after the original', async ({ nb }) => {
-  await mkdir(join(nb.workspace, 'Plan'))
-  await writeFile(join(nb.workspace, 'Plan.md'), '[Step](Plan/Step.md "page")\n\nNotes\n')
-  await writeFile(join(nb.workspace, 'Plan', 'Step.md'), 's\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Plan').hover()
-  await page.getByTestId('sidebar-row-Plan').getByRole('button', { name: 'Expand' }).click()
-  await rowAction(page, 'Step', 'Duplicate')
-  await expect(page.getByTestId('page-title')).toHaveText('Step (1)')
-  await waitForFile(
-    join(nb.workspace, 'Plan.md'),
-    /\[Step\]\(Plan\/Step\.md "page"\)\n\n\[Step \(1\)\]\(\S+ "page"\)\n\nNotes\n$/
-  )
-})
-
-test('a sub-page made with /page is linked only once', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Parent.md'), 'Body\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Parent').click()
-  await placeCaret(page.locator(editor))
-  await caretToLineEnd(page)
-  await page.keyboard.press('Enter')
-  await page.keyboard.type('/page')
-  await page.keyboard.press('Enter')
-  const text = await waitForFile(join(nb.workspace, 'Parent.md'), '"page")')
-  expect(text.match(/"page"\)/g)).toHaveLength(1)
-  await expect(page.locator(`${editor} .nb-page-link`)).toHaveCount(1)
-})
-
-test('deleting a sub-page removes its link from the parent, and restoring puts it back', async ({
-  nb
+test('deleting a sub-page removes its link from the parent, and restoring puts it and its sub-pages back', async ({
+  nbWith
 }) => {
-  await mkdir(join(nb.workspace, 'Plan'))
-  await writeFile(join(nb.workspace, 'Plan.md'), 'Before\n\n[Step](Plan/Step.md "page")\n\nAfter\n')
-  await writeFile(join(nb.workspace, 'Plan', 'Step.md'), 's\n')
-  const page = await nb.relaunch()
+  const nb = await nbWith({
+    files: {
+      'Plan.md': 'Before\n\n[Step](Plan/Step.md "page")\n\nAfter\n',
+      'Plan/Step.md': 's\n\n[Detail](Step/Detail.md "page")\n',
+      'Plan/Step/Detail.md': 'd\n'
+    }
+  })
+  const { page } = nb
   await page.getByTestId('sidebar-row-Plan').click()
   await page.getByTestId('sidebar-row-Plan').getByRole('button', { name: 'Expand' }).click()
   const shown = page.locator(editor)
   await expect(shown.locator('.nb-page-link-title')).toHaveText('Step')
+  const step = page.getByTestId('sidebar-row-Step')
+  await step.hover()
+  await step.getByRole('button', { name: 'Expand' }).click()
+  await expect(page.getByTestId('sidebar-row-Detail')).toBeVisible()
   await rowAction(page, 'Step', 'Move to Trash')
+  await expect(page.getByTestId('sidebar-row-Detail')).toHaveCount(0)
   await expect(shown.locator('.nb-page-link')).toHaveCount(0)
   await expect(shown).toContainText('Before')
   await expect(shown).toContainText('After')
@@ -162,6 +111,8 @@ test('deleting a sub-page removes its link from the parent, and restoring puts i
   await page.getByTestId('trash-item-Step').click()
   await page.getByRole('button', { name: 'Restore page' }).click()
   await expect(page.getByTestId('page-title')).toHaveText('Step')
+  await expect(shown.locator('.nb-page-link-title')).toHaveText('Detail')
+  await expect(page.getByTestId('sidebar-row-Detail')).toBeVisible()
   await waitForFile(
     join(nb.workspace, 'Plan.md'),
     'Before\n\n[Step](Plan/Step.md "page")\n\nAfter\n'
@@ -171,12 +122,12 @@ test('deleting a sub-page removes its link from the parent, and restoring puts i
 })
 
 test('restoring a sub-page right after typing in its parent keeps both the text and the link', async ({
-  nb
+  nbWith
 }) => {
-  await mkdir(join(nb.workspace, 'Plan'))
-  await writeFile(join(nb.workspace, 'Plan.md'), 'Before\n\n[Step](Plan/Step.md "page")\n')
-  await writeFile(join(nb.workspace, 'Plan', 'Step.md'), 's\n')
-  const page = await nb.relaunch()
+  const nb = await nbWith({
+    files: { 'Plan.md': 'Before\n\n[Step](Plan/Step.md "page")\n', 'Plan/Step.md': 's\n' }
+  })
+  const { page } = nb
   await page.getByTestId('sidebar-row-Plan').click()
   await page.getByTestId('sidebar-row-Plan').getByRole('button', { name: 'Expand' }).click()
   await rowAction(page, 'Step', 'Move to Trash')

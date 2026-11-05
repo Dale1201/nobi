@@ -1,9 +1,9 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test } from './fixtures'
-import { editor, newPage, waitForFile } from './helpers'
+import { editor, newPage, openFile, placeCaret, waitForFile } from './helpers'
 
-test('the slash menu looks like Notion', async ({ nb }) => {
+test('the slash menu looks like Notion, and no results then a space closes it', async ({ nb }) => {
   const { page } = nb
   await newPage(page, 'Slash')
   await page.keyboard.type('/')
@@ -18,16 +18,25 @@ test('the slash menu looks like Notion', async ({ nb }) => {
   await expect(
     menu.getByRole('option', { name: /To-do list/ }).locator('.menu-item-hint')
   ).toHaveText('[]')
-  const heights = await items.evaluateAll((els) =>
-    els.map((el) => el.getBoundingClientRect().height)
-  )
-  expect(heights.every((h) => h === 28)).toBe(true)
+  await expect
+    .poll(
+      () => items.evaluateAll((els) => els.every((el) => el.getBoundingClientRect().height === 28)),
+      'every item is 28px tall'
+    )
+    .toBe(true)
   await expect(menu).not.toContainText('⌘')
   await expect(menu.locator('.slash-menu-footer')).toContainText("Type '/' on the page")
-  expect((await menu.boundingBox())!.width).toBe(324)
+  await expect.poll(async () => (await menu.boundingBox())?.width).toBe(324)
+  await page.keyboard.type('zzzz')
+  await expect(menu.locator('.menu-empty')).toHaveText('No results')
+  await page.keyboard.type(' ')
+  await expect(menu).toBeHidden()
+  await expect(page.locator(editor)).toContainText('/zzzz')
 })
 
-test('typing filters and Enter turns the block into the choice', async ({ nb }) => {
+test('typing filters, hovering moves the highlight, and Enter turns the block into the highlighted choice', async ({
+  nb
+}) => {
   const { page } = nb
   await newPage(page, 'Filter')
   await page.keyboard.type('/head')
@@ -39,44 +48,26 @@ test('typing filters and Enter turns the block into the choice', async ({ nb }) 
     'Toggle heading 2',
     'Toggle heading 3'
   ])
+  await page.keyboard.press('ArrowDown')
+  const active = page.locator('.slash-menu .menu-item.active')
+  await expect(active).toHaveText(/Heading 2/)
+  await page.locator('.slash-menu').getByRole('option', { name: 'Heading 1', exact: true }).hover()
+  await expect(active).toHaveCount(1)
+  await expect(active).toHaveText(/Heading 1/)
+  await page.keyboard.press('ArrowDown')
+  await expect(active).toHaveText(/Heading 2/)
   await page.keyboard.press('Enter')
-  await page.keyboard.type('Title')
-  await waitForFile(join(nb.workspace, 'Filter.md'), '# Title')
+  await page.keyboard.type('Picked')
+  await waitForFile(join(nb.workspace, 'Filter.md'), '## Picked')
 })
 
-test('no results, then a space, closes the menu like Notion', async ({ nb }) => {
-  const { page } = nb
-  await newPage(page, 'Nothing')
-  await page.keyboard.type('/zzzz')
-  await expect(page.locator('.slash-menu .menu-empty')).toHaveText('No results')
-  await page.keyboard.type(' ')
-  await expect(page.locator('.slash-menu')).toBeHidden()
-  await expect(page.locator(editor)).toContainText('/zzzz')
-})
-
-test('the menu flips above the cursor at the bottom of the window', async ({ nb }) => {
+test('the whole menu stays on screen mid-window, and flips above the cursor at the bottom', async ({
+  nbWith
+}) => {
   const body = Array.from({ length: 80 }, (_, i) => `Line ${i}`).join('\n\n') + '\n'
-  await writeFile(join(nb.workspace, 'Long.md'), body)
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Long').click()
-  const last = page.locator(`${editor} .bn-block-content`).last()
-  await last.scrollIntoViewIfNeeded()
-  // Clicking a block's empty right side puts the cursor at its end; End would scroll the page on macOS.
-  await last.click()
-  await page.keyboard.press('Enter')
-  await page.keyboard.type('/')
-  const box = (await page.locator('.slash-menu').boundingBox())!
+  const { page } = await openFile(nbWith, 'Long', body)
   const height = await page.evaluate(() => innerHeight)
-  expect(box.y + box.height).toBeLessThanOrEqual(height)
-  expect(box.y).toBeGreaterThanOrEqual(0)
-})
-
-test('the whole menu stays on screen when it opens mid-window', async ({ nb }) => {
-  const body = Array.from({ length: 80 }, (_, i) => `Line ${i}`).join('\n\n') + '\n'
-  await writeFile(join(nb.workspace, 'Middle.md'), body)
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Middle').click()
-  const height = await page.evaluate(() => innerHeight)
+  const footer = page.locator('.slash-menu-footer')
   for (const room of [320, 360, 400]) {
     const line = page.locator(`${editor} .bn-block-content`, { hasText: /^Line 40$/ })
     await line.evaluate((el, gap) => {
@@ -84,32 +75,36 @@ test('the whole menu stays on screen when it opens mid-window', async ({ nb }) =
       const r = el.getBoundingClientRect()
       scroller.scrollTop += r.bottom - (innerHeight - gap)
     }, room)
-    await line.click()
+    await placeCaret(line)
     await page.keyboard.type(' /')
-    const footer = page.locator('.slash-menu-footer')
     await expect(footer).toBeVisible()
-    const box = (await footer.boundingBox())!
-    expect(box.y + box.height).toBeLessThanOrEqual(height)
+    await expect
+      .poll(async () => {
+        const box = await footer.boundingBox()
+        return box && box.y + box.height <= height
+      }, `menu fits with ${room}px below the line`)
+      .toBe(true)
     await page.keyboard.press('Escape')
+    await expect(footer).toBeHidden()
     await page.keyboard.press('Backspace')
     await page.keyboard.press('Backspace')
+    await expect(line).toHaveText('Line 40')
   }
-})
 
-test('hovering moves the highlight, and Enter picks the hovered item', async ({ nb }) => {
-  const { page } = nb
-  await newPage(page, 'Hover')
-  await page.keyboard.type('/')
-  await page.keyboard.press('ArrowDown')
-  await page.locator('.slash-menu').getByRole('option', { name: 'Heading 2', exact: true }).hover()
-  const active = page.locator('.slash-menu .menu-item.active')
-  await expect(active).toHaveCount(1)
-  await expect(active).toHaveText(/Heading 2/)
-  await page.keyboard.press('ArrowDown')
-  await expect(active).toHaveText(/Heading 3/)
+  const last = page.locator(`${editor} .bn-block-content`).last()
+  await last.scrollIntoViewIfNeeded()
+  // Clicking a block's empty right side puts the cursor at its end; End would scroll the page on macOS.
+  await placeCaret(last)
   await page.keyboard.press('Enter')
-  await page.keyboard.type('Picked')
-  await waitForFile(join(nb.workspace, 'Hover.md'), '### Picked')
+  await page.keyboard.type('/')
+  const menu = page.locator('.slash-menu')
+  await expect(menu).toBeVisible()
+  await expect
+    .poll(async () => {
+      const box = await menu.boundingBox()
+      return box && box.y >= 0 && box.y + box.height <= height
+    }, 'menu at the bottom flips above the cursor')
+    .toBe(true)
 })
 
 test('the highlight survives the app updating while the menu is open', async ({ nb }) => {
@@ -117,11 +112,18 @@ test('the highlight survives the app updating while the menu is open', async ({ 
   await newPage(page, 'Steady')
   await page.keyboard.type('/')
   await page.locator('.slash-menu').getByRole('option', { name: 'Heading 3', exact: true }).hover()
+  // Off the menu, so no hover can put back a highlight the update reset.
+  await page.mouse.move(0, 0)
+  const active = page.locator('.slash-menu .menu-item.active')
+  await expect(active).toHaveText(/Heading 3/)
   // A new page re-renders the editor, which hands BlockNote a fresh item loader.
   await writeFile(join(nb.workspace, 'Arrived.md'), 'new\n')
   await expect(page.getByTestId('sidebar-row-Arrived')).toBeVisible()
-  await page.waitForTimeout(300)
-  await expect(page.locator('.slash-menu .menu-item.active')).toHaveText(/Heading 3/)
+  // The fresh loader resolves in microtasks, so its items have rendered by the second frame.
+  await page.evaluate(
+    () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+  )
+  await expect(active).toHaveText(/Heading 3/)
   await page.keyboard.press('Enter')
   await page.keyboard.type('Kept')
   await waitForFile(join(nb.workspace, 'Steady.md'), '### Kept')

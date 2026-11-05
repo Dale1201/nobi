@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import type { ElectronApplication, Page } from '@playwright/test'
 import yazl from 'yazl'
 import { expect, test } from './fixtures'
-import { editor, newPage, waitForFile } from './helpers'
+import { editor, newPage, stubOpenDialog, waitForFile } from './helpers'
 
 const FIXTURES = resolve('tests/fixtures')
 const EXPORT_ZIP = join(FIXTURES, 'notion-export.zip')
@@ -17,6 +17,7 @@ const IMPORTED = { timeout: 15_000 }
 // "Web" images the export links to are served locally; a test can hold the answers back.
 let server: Server
 let held: Promise<void> | null = null
+const webBefore = process.env.NOBSIDIAN_E2E_WEB
 test.beforeAll(async () => {
   const png = await readFile(join(FIXTURES, 'web-image.png'))
   server = createServer((_req, res) => {
@@ -28,18 +29,19 @@ test.beforeAll(async () => {
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
   process.env.NOBSIDIAN_E2E_WEB = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
-test.afterAll(() => server.close())
+test.afterAll(() => {
+  if (webBefore === undefined) delete process.env.NOBSIDIAN_E2E_WEB
+  else process.env.NOBSIDIAN_E2E_WEB = webBefore
+  server.close()
+})
 
 async function importViaMenu(app: ElectronApplication, zips: string[]): Promise<void> {
   // The renderer ignores the command until the workspace has loaded.
   await expect((await app.firstWindow()).getByRole('button', { name: 'Search' })).toBeVisible()
-  await app.evaluate(({ dialog, Menu }, filePaths) => {
-    dialog.showOpenDialog = (async () => ({
-      canceled: false,
-      filePaths
-    })) as typeof dialog.showOpenDialog
+  await stubOpenDialog(app, zips)
+  await app.evaluate(({ Menu }) =>
     Menu.getApplicationMenu()!.getMenuItemById('import-notion')!.click()
-  }, zips)
+  )
 }
 
 test('imports a Notion export with its pages, images, colors and links', async ({ nb }) => {
@@ -84,26 +86,59 @@ test('imports a Notion export with its pages, images, colors and links', async (
   )
 })
 
-test('a second import lands next to the first one', async ({ nb }) => {
+test('a second import lands next to the first, and a refused drop shows above the panel in a narrow window', async ({
+  nb
+}) => {
   const { app, page } = nb
   await importViaMenu(app, [EXPORT_ZIP])
-  await expect(page.getByRole('status')).toContainText('Imported 10 pages', IMPORTED)
+  const panel = page.getByRole('status')
+  await expect(panel).toContainText('Imported 10 pages', IMPORTED)
   await page.getByRole('button', { name: 'Dismiss' }).click()
   await importViaMenu(app, [EXPORT_ZIP])
-  await expect(page.getByRole('status')).toContainText('Imported 10 pages', IMPORTED)
+  await expect(panel).toContainText('Imported 10 pages', IMPORTED)
   await expect(page.getByTestId('sidebar-row-Imported from Notion')).toBeVisible()
   await expect(page.getByTestId('sidebar-row-Imported from Notion (2)')).toBeVisible()
   await waitForFile(join(nb.workspace, 'Imported from Notion (2).md'), 'id:')
   expect(await readdir(join(nb.workspace, 'attachments'))).toContain('fixture-image (2).png')
+
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setContentSize(720, 600)
+  )
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(720)
+  const zip = join(nb.userData, 'notes.zip')
+  await writeMarkdownExport(zip)
+  await dropZip(page, zip)
+  const toast = page.getByRole('alert')
+  await expect(toast).toContainText('This is a Markdown export. Export again as HTML.')
+  await expect(page.getByText('Import this file from Notion?')).toHaveCount(0)
+  // The lift follows the panel's height through a ResizeObserver, which reports on the next frame.
+  await expect
+    .poll(async () => {
+      const toastBox = (await toast.boundingBox())!
+      const panelBox = (await panel.boundingBox())!
+      return panelBox.y - (toastBox.y + toastBox.height)
+    })
+    .toBeGreaterThanOrEqual(0)
+  await expect
+    .poll(async () => {
+      const toastBox = (await toast.boundingBox())!
+      return Math.abs(toastBox.x + toastBox.width / 2 - 360)
+    })
+    .toBeLessThanOrEqual(1)
 })
 
-test('cancelling an import leaves nothing behind', async ({ nb }) => {
+test('a zip dropped during an import is refused, and cancelling leaves nothing behind', async ({
+  nb
+}) => {
   const big = join(nb.userData, 'big-export.zip')
   await writeBigExport(big, 1500)
   const { app, page } = nb
   await importViaMenu(app, [big])
   const panel = page.getByRole('status')
   await expect(panel).toContainText('Converting pages')
+  await dropZip(page, EXPORT_ZIP)
+  await expect(page.getByRole('alert')).toContainText('An import is already running.')
+  await expect(page.getByText('Import this file from Notion?')).toHaveCount(0)
   await panel.getByRole('button', { name: 'Cancel' }).click()
   await expect(panel).toContainText('Cancelled, nothing was imported.')
   await expect(page.getByTestId('sidebar-row-Imported from Notion')).toHaveCount(0)
@@ -114,16 +149,6 @@ test('cancelling an import leaves nothing behind', async ({ nb }) => {
       )
     )
     .toEqual([])
-})
-
-test('a zip that is not a Notion HTML export is refused', async ({ nb }) => {
-  const zip = join(nb.userData, 'notes.zip')
-  await writeMarkdownExport(zip)
-  await importViaMenu(nb.app, [zip])
-  await expect(nb.page.getByRole('alert')).toContainText(
-    'This is a Markdown export. Export again as HTML.'
-  )
-  await expect(nb.page.getByTestId('sidebar-row-Imported from Notion')).toHaveCount(0)
 })
 
 /** Puts Notion's own copy on the clipboard: its HTML, text and block records as Chromium custom data. */
@@ -252,14 +277,15 @@ test(
 )
 
 test(
-  'a phrase from Notion is pasted into the sentence at the cursor',
+  'a Notion paste goes into the sentence at the cursor, or replaces the selected text',
   { tag: '@clipboard' },
   async ({ nb }) => {
     const { app, page } = nb
+    const file = join(nb.workspace, 'Phrase.md')
     await newPage(page, 'Phrase')
     await page.keyboard.type('Hello world')
     // Saved means the editor has taken the typing in, so the next keys are not lost.
-    await waitForFile(join(nb.workspace, 'Phrase.md'), 'Hello world')
+    await waitForFile(file, 'Hello world')
     for (let i = 0; i < 'world'.length; i++) await pressMovingSelection(page, 'ArrowLeft')
     await copyFromNotion(app, {
       records: textRecords('pasted words'),
@@ -267,28 +293,21 @@ test(
       text: 'pasted words'
     })
     await paste(app)
-    const paragraphs = page.locator(`${editor} .bn-block-content`)
-    await expect(paragraphs).toHaveText(['Hello pasted wordsworld'])
-    await waitForFile(join(nb.workspace, 'Phrase.md'), 'Hello pasted wordsworld')
+    const blocks = page.locator(`${editor} .bn-block-content`)
+    await expect(blocks).toHaveText(['Hello pasted wordsworld'])
+    await waitForFile(file, 'Hello pasted wordsworld')
+
+    for (let i = 0; i < 'world'.length; i++) await pressMovingSelection(page, 'Shift+ArrowRight')
+    await copyFromNotion(app, { records: textRecords('X'), text: 'X' })
+    await paste(app)
+    await expect(blocks).toHaveText(['Hello pasted wordsX'])
+    await pressMovingSelection(page, 'Shift+ArrowLeft')
+    await pressMovingSelection(page, 'Shift+ArrowLeft')
+    await copyFromNotion(app, { records: textRecords('One', 'Two'), text: 'One\nTwo' })
+    await paste(app)
+    await expect(blocks).toHaveText(['Hello pasted word', 'One', 'Two'])
   }
 )
-
-test('a Notion paste replaces the selected text', { tag: '@clipboard' }, async ({ nb }) => {
-  const { app, page } = nb
-  await newPage(page, 'Selected')
-  await page.keyboard.type('Hello world')
-  await waitForFile(join(nb.workspace, 'Selected.md'), 'Hello world')
-  for (let i = 0; i < 'world'.length; i++) await pressMovingSelection(page, 'Shift+ArrowLeft')
-  await copyFromNotion(app, { records: textRecords('pasted words'), text: 'pasted words' })
-  await paste(app)
-  const blocks = page.locator(`${editor} .bn-block-content`)
-  await expect(blocks).toHaveText(['Hello pasted words'])
-  await pressMovingSelection(page, 'Shift+ArrowLeft')
-  await pressMovingSelection(page, 'Shift+ArrowLeft')
-  await copyFromNotion(app, { records: textRecords('One', 'Two'), text: 'One\nTwo' })
-  await paste(app)
-  await expect(blocks).toHaveText(['Hello pasted wor', 'One', 'Two'])
-})
 
 test(
   'a Notion paste into a code block is pasted as plain text',
@@ -352,31 +371,6 @@ test('dropping a Notion export on the window asks, then imports it', async ({ nb
   await expect(page.getByRole('status')).toContainText('Imported 10 pages', IMPORTED)
 })
 
-test('dropping a Markdown export on the window says to export HTML', async ({ nb }) => {
-  const zip = join(nb.userData, 'notes.zip')
-  await writeMarkdownExport(zip)
-  await expect(nb.page.getByRole('button', { name: 'Search' })).toBeVisible()
-  await dropZip(nb.page, zip)
-  await expect(nb.page.getByRole('alert')).toContainText(
-    'This is a Markdown export. Export again as HTML.'
-  )
-  await expect(nb.page.getByText('Import this file from Notion?')).toHaveCount(0)
-})
-
-test('a zip dropped during an import is refused without asking', async ({ nb }) => {
-  const big = join(nb.userData, 'big-export.zip')
-  await writeBigExport(big, 1500)
-  const { app, page } = nb
-  await importViaMenu(app, [big])
-  const panel = page.getByRole('status')
-  await expect(panel).toContainText('Converting pages')
-  await dropZip(page, EXPORT_ZIP)
-  await expect(page.getByRole('alert')).toContainText('An import is already running.')
-  await expect(page.getByText('Import this file from Notion?')).toHaveCount(0)
-  await panel.getByRole('button', { name: 'Cancel' }).click()
-  await expect(panel).toContainText('Cancelled')
-})
-
 test('an export-named zip dropped in a page that is not one is attached as a file', async ({
   nb
 }) => {
@@ -385,32 +379,6 @@ test('an export-named zip dropped in a page that is not one is attached as a fil
   await dropZip(page, 'Export-1.zip', editor)
   await expect(page.locator(editor).getByText('Export-1.zip')).toBeVisible()
   await expect(page.getByText('Import this file from Notion?')).toHaveCount(0)
-})
-
-test('a message shows above the import panel in a narrow window', async ({ nb }) => {
-  const { app, page } = nb
-  await importViaMenu(app, [EXPORT_ZIP])
-  const panel = page.getByRole('status')
-  await expect(panel).toContainText('Imported 10 pages', IMPORTED)
-  await app.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].setContentSize(720, 600)
-  )
-  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(720)
-  const zip = join(nb.userData, 'notes.zip')
-  await writeMarkdownExport(zip)
-  await dropZip(page, zip)
-  const toast = page.getByRole('alert')
-  await expect(toast).toContainText('This is a Markdown export.')
-  // The lift follows the panel's height through a ResizeObserver, which reports on the next frame.
-  await expect
-    .poll(async () => {
-      const toastBox = (await toast.boundingBox())!
-      const panelBox = (await panel.boundingBox())!
-      return panelBox.y - (toastBox.y + toastBox.height)
-    })
-    .toBeGreaterThanOrEqual(0)
-  const toastBox = (await toast.boundingBox())!
-  expect(Math.abs(toastBox.x + toastBox.width / 2 - 360)).toBeLessThanOrEqual(1)
 })
 
 async function dropZip(page: Page, path: string, target = 'body'): Promise<void> {

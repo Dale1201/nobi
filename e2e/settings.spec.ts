@@ -3,12 +3,12 @@ import { join } from 'node:path'
 import { GOOD_KEY } from './fakeAnthropic'
 import type { ElectronApplication, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { clickMenuItem, editor, newPage } from './helpers'
+import { editor, failIpc, menu, newPage } from './helpers'
 
 // The menu command is ignored until the workspace has loaded, which the sidebar shows.
 async function openAiSettings(page: Page, app: ElectronApplication): Promise<void> {
   await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
-  await clickMenuItem(app, 'Settings…')
+  await menu(app, 'Settings…')
   const dialog = page.getByRole('dialog', { name: 'Settings' })
   await expect(dialog.getByRole('heading', { name: 'Preferences' })).toBeVisible()
   await dialog.getByRole('button', { name: 'AI', exact: true }).click()
@@ -37,7 +37,7 @@ test('Settings opens from the sidebar and the app menu, and changes the theme', 
     return item?.accelerator
   })
   expect(accelerator).toBe('CmdOrCtrl+,')
-  await clickMenuItem(app, 'Settings…')
+  await menu(app, 'Settings…')
   await expect(dialog.getByRole('heading', { name: 'Preferences' })).toBeVisible()
   await dialog.getByRole('button', { name: 'Close' }).click()
   await expect(dialog).toBeHidden()
@@ -130,30 +130,27 @@ test('Settings takes the keyboard from the page, and gives focus back to a selec
   await expect(model).toBeFocused()
 })
 
-test('the key field reports a failed save or remove instead of sticking', async ({ nb }) => {
+test('the key field reports a failed save instead of sticking', async ({ nb }) => {
   const { page, app } = nb
   await openAiSettings(page, app)
   const dialog = page.getByRole('dialog', { name: 'Settings' })
   const field = dialog.getByLabel('Anthropic API key')
   await expect(field).toBeVisible()
 
-  await app.evaluate(({ ipcMain }) => ipcMain.removeHandler('ai:setKey'))
+  await failIpc(app, 'ai:setKey')
   await field.fill(GOOD_KEY)
   await dialog.getByRole('button', { name: 'Save' }).click()
   await expect(dialog.getByRole('alert')).toHaveText("Couldn't save the key.")
   await expect(dialog.getByRole('button', { name: 'Save' })).toBeEnabled()
 })
 
-test('a failed remove says so and keeps the key', async ({ nb }) => {
-  const { page, app } = nb
+test('a failed remove says so and keeps the key', async ({ nbWith }) => {
+  const { page, app } = await nbWith({ aiKey: true })
   await openAiSettings(page, app)
   const dialog = page.getByRole('dialog', { name: 'Settings' })
-  const field = dialog.getByLabel('Anthropic API key')
-  await field.fill(GOOD_KEY)
-  await field.press('Enter')
   await expect(dialog).toContainText('sk-ant-…a1b2')
 
-  await app.evaluate(({ ipcMain }) => ipcMain.removeHandler('ai:clearKey'))
+  await failIpc(app, 'ai:clearKey')
   await dialog.getByRole('button', { name: 'Remove' }).click()
   await expect(dialog.getByRole('alert')).toHaveText("Couldn't remove the key.")
   await expect(dialog).toContainText('sk-ant-…a1b2')

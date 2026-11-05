@@ -203,4 +203,59 @@ describe('the MCP server', () => {
     ws = null
     await expect(call('list_pages')).rejects.toThrow('No notes folder is open in Nobsidian.')
   })
+
+  it('checks a parent id as it checks a page id, and lets null mean the top level', async () => {
+    const projects = idIn(await call('list_pages'))
+    const missing = 'No page has the id gone. Use search_pages or list_pages to find one.'
+    await expect(call('list_pages', { parentId: 'gone' })).rejects.toThrow(missing)
+    await expect(call('create_page', { title: 'Lost', parentId: 'gone' })).rejects.toThrow(missing)
+    await expect(call('move_page', { id: projects, parentId: 'gone' })).rejects.toThrow(missing)
+    expect(treeChanges).toBe(0)
+    const a = idIn(await call('create_page', { title: 'A', parentId: projects }))
+    await call('create_page', { title: 'B' })
+    await call('move_page', { id: a, parentId: null, index: 0 })
+    expect((await call('list_pages')).split('\n').map((line) => line.split(' (')[0])).toEqual([
+      '- A',
+      '- Projects',
+      '- B'
+    ])
+  })
+
+  it('reports what the notes folder refuses as a tool error', async () => {
+    const projects = idIn(await call('list_pages'))
+    const launch = idIn(await call('create_page', { title: 'Launch', parentId: projects }))
+    await expect(call('move_page', { id: projects, parentId: launch })).rejects.toThrow(
+      'A page cannot be moved inside itself'
+    )
+    expect(await call('list_pages')).toBe(
+      `- Projects (id: ${projects})\n  - Launch (id: ${launch})`
+    )
+  })
+
+  it('places deep pages in the outline, their breadcrumb and their parent line', async () => {
+    const projects = idIn(await call('list_pages'))
+    const launch = idIn(await call('create_page', { title: 'Launch', parentId: projects }))
+    const day = idIn(
+      await call('create_page', { title: 'Day one', parentId: launch, markdown: 'Balloons.' })
+    )
+    expect(await call('list_pages')).toBe(
+      `- Projects (id: ${projects})\n  - Launch (id: ${launch})\n    - Day one (id: ${day})`
+    )
+    expect(await call('list_pages', { parentId: projects })).toBe(
+      `- Launch (id: ${launch})\n  - Day one (id: ${day})`
+    )
+    expect(await call('search_pages', { query: 'balloons' })).toBe(
+      `- Day one (id: ${day})\n  in: Projects / Launch\n  Balloons.`
+    )
+    expect(await call('read_page', { id: day })).toContain(`\nparent: Launch (id: ${launch})\n`)
+    expect(await call('search_pages', { query: 'zeppelin' })).toBe('No pages match.')
+  })
+
+  it('lists at most 20 search results', async () => {
+    for (let i = 0; i < 21; i++) {
+      await call('create_page', { title: `Note ${i}`, markdown: 'Shared word.' })
+    }
+    const hits = (await call('search_pages', { query: 'shared' })).match(/^- /gm)
+    expect(hits).toHaveLength(20)
+  })
 })

@@ -1,11 +1,11 @@
 import { utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { expect, test } from './fixtures'
-import { editor, newPage, openFile, waitForFile } from './helpers'
+import { editor, newPage, openFile, placeCaret, pressInEditor, waitForFile } from './helpers'
 
-test('@ links a page as a mention that opens it', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Roadmap.md'), '---\nicon: 🗺️\n---\n\nplan\n')
-  const page = await nb.relaunch()
+test('@ links a page as a mention that opens it', async ({ nbWith }) => {
+  const nb = await nbWith({ files: { 'Roadmap.md': '---\nicon: 🗺️\n---\n\nplan\n' } })
+  const { page } = nb
   await expect(page.getByTestId('sidebar-row-Roadmap')).toBeVisible()
   await newPage(page, 'Notes')
   await page.keyboard.type('See @road')
@@ -33,12 +33,11 @@ test('[[ opens the same picker and can create a page', async ({ nb }) => {
 })
 
 test('a mention shows the new title after a rename, and goes grey when the page is deleted', async ({
-  nb
+  nbWith
 }) => {
-  await writeFile(join(nb.workspace, 'Target.md'), 't\n')
-  await writeFile(join(nb.workspace, 'Source.md'), 'Go to [Target](Target.md "mention")\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Source').click()
+  const { page } = await openFile(nbWith, 'Source', 'Go to [Target](Target.md "mention")\n', {
+    files: { 'Target.md': 't\n' }
+  })
   const row = page.getByTestId('sidebar-row-Target')
   await row.hover()
   await row.getByRole('button', { name: 'Page actions' }).click()
@@ -58,7 +57,7 @@ test('@ inside an email address or before a space does not create pages', async 
   const { page } = nb
   await newPage(page, 'Mail')
   const rows = page.locator('[data-testid^="sidebar-row-"]')
-  const before = await rows.count()
+  await expect(rows).toHaveCount(1)
   await page.keyboard.type('mail dale@easygo.io')
   await expect(page.locator('.page-picker')).toHaveCount(0)
   await page.keyboard.press('Enter')
@@ -73,26 +72,24 @@ test('@ inside an email address or before a space does not create pages', async 
   await expect(page.locator(`${editor} .nb-mention`)).toHaveCount(0)
   const saved = await waitForFile(join(nb.workspace, 'Mail.md'), 'meet @ 5pm')
   expect(saved).not.toContain('"mention"')
-  await expect(rows).toHaveCount(before)
+  await expect(rows).toHaveCount(1)
 })
 
 test(
   'copied blocks paste back with their mentions, callouts and page links',
   { tag: '@clipboard' },
-  async ({ nb }) => {
-    await writeFile(join(nb.workspace, 'Target.md'), 't\n')
-    await writeFile(
-      join(nb.workspace, 'Copy.md'),
-      'Go to [Target](Target.md "mention")\n\n> [!callout] 💡\n> Note\n\n[Target](Target.md "page")\n\nEnd\n'
+  async ({ nbWith }) => {
+    const { page } = await openFile(
+      nbWith,
+      'Copy',
+      'Go to [Target](Target.md "mention")\n\n> [!callout] 💡\n> Note\n\n[Target](Target.md "page")\n\nEnd\n',
+      { files: { 'Target.md': 't\n' } }
     )
-    const page = await nb.relaunch()
-    await page.getByTestId('sidebar-row-Copy').click()
     const types = page.locator(`${editor} .bn-block-content`)
     await expect(types).toHaveCount(4)
     // A click on the first line would land on the mention and open it.
     const note = page.locator(`${editor} .bn-inline-content`, { hasText: 'Note' })
-    await note.click()
-    // Typing reads the clicked caret at once; a bare key press can beat ProseMirror to it.
+    await placeCaret(note)
     await page.keyboard.type('!')
     await expect(note).toContainText('!')
     await page.keyboard.press('Backspace')
@@ -120,8 +117,11 @@ test(
 
 const LINKS = 'See [Target](Target.md "mention")\n\n[Target](Target.md "page")\n'
 
-test('links come alive when the page they point to is added outside the app', async ({ nb }) => {
-  const page = await openFile(nb, 'Home', LINKS)
+test('links come alive when the page they point to is added outside the app', async ({
+  nbWith
+}) => {
+  const nb = await openFile(nbWith, 'Home', LINKS)
+  const { page } = nb
   const missing = page.locator(`${editor} [data-missing]`)
   await expect(missing).toHaveCount(2)
   await writeFile(join(nb.workspace, 'Target.md'), 't\n')
@@ -131,6 +131,7 @@ test('links come alive when the page they point to is added outside the app', as
   await page
     .locator(`${editor} .bn-inline-content`, { hasText: 'See' })
     .click({ position: { x: 1, y: 8 } })
+  await pressInEditor(page, 'End')
   await page.keyboard.type('!')
   const saved = await waitForFile(join(nb.workspace, 'Home.md'), '!')
   expect(saved).toContain('[Target](Target.md "mention")')

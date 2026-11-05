@@ -29,8 +29,28 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
 
+  build:
+    name: Build the app for end-to-end tests
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec electron-vite build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: e2e-build
+          path: out/
+          retention-days: 1
+
   e2e:
     name: End-to-end tests (${{ matrix.shard }}/3)
+    needs: build
     # Electron's end-to-end tests need a real macOS desktop, which these runners provide.
     runs-on: macos-latest
     timeout-minutes: 15
@@ -46,7 +66,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:e2e --shard=${{ matrix.shard }}/3
+      - uses: actions/download-artifact@v7
+        with:
+          name: e2e-build
+          path: out/
+      - run: pnpm exec playwright test --shard=${{ matrix.shard }}/3
       - name: Upload end-to-end traces
         if: failure()
         uses: actions/upload-artifact@v7
@@ -70,3 +94,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:packaged
+      - name: Upload packaged-app traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaged-results
+          path: test-results/
+          retention-days: 7
