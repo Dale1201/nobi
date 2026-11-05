@@ -6,11 +6,13 @@ import { useApp } from '../store'
 import { ChevronRightIcon, DotsIcon, PlusIcon } from './icons'
 import { Menu } from './menu/Menu'
 import {
+  copyPathEntry,
   duplicatePageEntry,
   favoriteEntry,
   moveToEntry,
   openInTabEntry,
   renameEntry,
+  revealEntry,
   trashEntry
 } from './pageActions'
 import { PageIconView } from './PageIconView'
@@ -184,7 +186,9 @@ export function SidebarRow({
             moveToEntry(node.id),
             trashEntry(node.id),
             { kind: 'separator' },
-            openInTabEntry(node.id)
+            openInTabEntry(node.id),
+            revealEntry(node.id),
+            copyPathEntry(node.id)
           ]}
         />
       )}

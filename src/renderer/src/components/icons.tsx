@@ -223,6 +223,22 @@ export const DuplicateIcon = (p: IconProps): React.JSX.Element => (
   </Svg>
 )
 
+export const FolderIcon = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path
+      d="M3 6.25c0-.97.78-1.75 1.75-1.75h3l1.75 1.75h5.75c.97 0 1.75.78 1.75 1.75v5.75c0 .97-.78 1.75-1.75 1.75H4.75C3.78 15.5 3 14.72 3 13.75v-7.5Z"
+      {...stroke}
+    />
+  </Svg>
+)
+
+export const LinkIcon = (p: IconProps): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M8.75 11.25a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-.88.88" {...stroke} />
+    <path d="M11.25 8.75a3 3 0 0 0-4.24 0l-2.12 2.12a3 3 0 0 0 4.24 4.24l.88-.88" {...stroke} />
+  </Svg>
+)
+
 export const TocIcon = (p: IconProps): React.JSX.Element => (
   <Svg {...p}>
     <path d="M7 5h9.5M9.5 10h7M9.5 15h7" {...stroke} />

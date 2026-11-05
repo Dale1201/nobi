@@ -806,6 +806,8 @@ button.breadcrumb:hover {
 }
 .page-header.has-cover {
   padding-top: 0;
+  /* Keeps the icon's negative margin from lifting the whole header over the cover buttons. */
+  display: flow-root;
 }
 .page-header-icon {
   font-size: 78px;

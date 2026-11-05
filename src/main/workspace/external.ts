@@ -173,13 +173,10 @@ export class ExternalChanges {
       const owned = [...files].some((f) => f.slice(0, -3).toLowerCase() === name.toLowerCase())
       const pageFile = joinPath(dir, `${name}.md`)
       if (owned) continue
-      // Atomic and only if absent, so a page another program writes there meanwhile is kept whole.
+      // Born whole with its id, so a page file another program writes meanwhile is never mixed into it.
       const id = randomUUID()
-      const made = await createFileAtomic(core.abs(pageFile), insertId('', id))
-      if (made) {
-        core.stubs.set(pageFile, id)
-        files.add(`${name}.md`)
-      }
+      if (await createFileAtomic(core.abs(pageFile), insertId('', id))) core.stubs.set(pageFile, id)
+      files.add(`${name}.md`)
     }
     for (const file of [...files]) {
       const path = joinPath(dir, file)
