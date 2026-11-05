@@ -103,6 +103,28 @@ test('writing a page saves Markdown to disk', async ({ nb }) => {
   expect(text).toMatch(/# Agenda\n\n- first item\n- second item\n/)
 })
 
+test('clicking a callout icon changes or removes it', async ({ nb }) => {
+  const { page, workspace } = nb
+  await page.getByRole('button', { name: 'New page' }).first().click()
+  await typeNewPageTitle(page, 'Notes')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('/callout')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Heads up')
+  await waitForFile(join(workspace, 'Notes.md'), '> [!callout] 💡\n> Heads up')
+  await page.locator('.nb-callout-icon').click()
+  await page.getByPlaceholder('Filter…').fill('airplane')
+  await page.locator('.nb-icon-picker-emoji', { hasText: '✈️' }).click()
+  await expect(page.locator('.icon-picker')).toHaveCount(0)
+  await expect(page.locator('.nb-callout-icon')).toHaveText('✈️')
+  await waitForFile(join(workspace, 'Notes.md'), '> [!callout] ✈️\n> Heads up')
+
+  await page.locator('.nb-callout-icon').click()
+  await page.getByRole('button', { name: 'Remove' }).click()
+  await expect(page.locator('.nb-callout-icon')).toHaveCount(0)
+  await waitForFile(join(workspace, 'Notes.md'), '> [!callout]\n> Heads up')
+})
+
 test('slash menu inserts a callout and a sub-page', async ({ nb }) => {
   const { page, workspace } = nb
   await page.getByRole('button', { name: 'New page' }).first().click()

@@ -74,6 +74,12 @@
   margin-left: 30px;
 }
 
+.bn-block:has(> .react-renderer > .bn-block-content[data-content-type='callout'])
+  :not(:has(> .react-renderer .nb-callout-icon))
+  > .bn-block-group {
+  margin-left: 0;
+}
+
 .nb-callout {
   display: flex;
   gap: 8px;
@@ -82,9 +88,36 @@
 
 .nb-callout-icon {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-size: 1.2em;
-  line-height: 1.5;
+  line-height: 1;
+  cursor: pointer;
   user-select: none;
+}
+
+.nb-callout-icon:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.nb-callout-icon:disabled {
+  cursor: default;
+}
+
+.nb-callout-icon img {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 3px;
 }
 
 .nb-callout-content {
@@ -788,7 +821,6 @@
   user-select: text;
 }
 .nb-writer-reply > :first-child {
-  margin-top: 0;
 }
 .nb-writer-reply > :last-child {
   margin-bottom: 0;
