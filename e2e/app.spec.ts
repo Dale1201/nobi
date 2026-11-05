@@ -103,6 +103,48 @@ test('writing a page saves Markdown to disk', async ({ nb }) => {
   expect(text).toMatch(/# Agenda\n\n- first item\n- second item\n/)
 })
 
+test('clicking a callout icon changes or removes it', async ({ nb }) => {
+  const { page, workspace } = nb
+  await page.getByRole('button', { name: 'New page' }).first().click()
+  await typeNewPageTitle(page, 'Notes')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('/callout')
+  await page.keyboard.press('Enter')
+  await page.keyboard.type('Heads up')
+  await waitForFile(join(workspace, 'Notes.md'), '> [!callout] 💡\n> Heads up')
+  await page.locator('.nb-callout-icon').click()
+  await page.getByPlaceholder('Filter…').fill('airplane')
+  await page.locator('.nb-icon-picker-emoji', { hasText: '✈️' }).click()
+  await expect(page.locator('.icon-picker')).toHaveCount(0)
+  await expect(page.locator('.nb-callout-icon')).toHaveText('✈️')
+  await waitForFile(join(workspace, 'Notes.md'), '> [!callout] ✈️\n> Heads up')
+
+  await page.locator('.nb-callout-icon').click()
+  await page.getByRole('button', { name: 'Remove' }).click()
+  await expect(page.locator('.nb-callout-icon')).toHaveCount(0)
+  await waitForFile(join(workspace, 'Notes.md'), '> [!callout]\n> Heads up')
+})
+
+test('callout children line up with the text, or the edge when there is no icon', async ({
+  nb
+}) => {
+  await writeFile(
+    join(nb.workspace, 'Boxes.md'),
+    '> [!callout] 💡\n> With icon\n>\n> - outer\n>   - inner\n\n> [!callout]\n> No icon\n>\n> Child\n'
+  )
+  const page = await nb.relaunch()
+  await page.getByTestId('sidebar-row-Boxes').click()
+  await expect(page.locator(editor)).toContainText('Child')
+  const indent = (text: string): Promise<number> =>
+    page
+      .locator(editor)
+      .getByText(text, { exact: true })
+      .evaluate((el) => parseFloat(getComputedStyle(el.closest('.bn-block-group')!).marginLeft))
+  expect(await indent('outer')).toBe(30)
+  expect(await indent('inner')).toBeGreaterThan(0)
+  expect(await indent('Child')).toBe(0)
+})
+
 test('slash menu inserts a callout and a sub-page', async ({ nb }) => {
   const { page, workspace } = nb
   await page.getByRole('button', { name: 'New page' }).first().click()

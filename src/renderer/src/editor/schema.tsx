@@ -16,6 +16,7 @@ import { codeBlockOptions } from '@blocknote/code-block'
 import { withMultiColumn } from '@blocknote/xl-multi-column'
 import { createContext, useContext, useState } from 'react'
 import { PageIconView } from '../components/PageIconView'
+import { IconPickerPopover } from '../components/PageHeader'
 import { openDrawing } from '../drawing/session'
 import { resolveAssetUrl } from '../lib/assets'
 import { decodeHref } from '@shared/core/paths'
@@ -51,15 +52,35 @@ export const createCallout = createReactBlockSpec(
     content: 'inline'
   },
   {
-    render: ({ block, contentRef }) => (
-      // BlockNote paints backgroundColor/textColor on the enclosing .bn-block.
-      <div className="nb-callout">
-        <span className="nb-callout-icon" contentEditable={false}>
-          {block.props.icon}
-        </span>
-        <div className="nb-callout-content" ref={contentRef} />
-      </div>
-    )
+    render: function Callout({ block, editor, contentRef }) {
+      const [picker, setPicker] = useState<DOMRect | null>(null)
+      const { icon } = block.props
+      return (
+        // BlockNote paints backgroundColor/textColor on the enclosing .bn-block.
+        <div className="nb-callout">
+          {icon && (
+            <button
+              className="nb-callout-icon"
+              contentEditable={false}
+              aria-label="Change icon"
+              disabled={!editor.isEditable}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={(e) => setPicker(e.currentTarget.getBoundingClientRect())}
+            >
+              {icon.startsWith('/') ? <img src={resolveAssetUrl(icon)} alt="" /> : icon}
+            </button>
+          )}
+          <div className="nb-callout-content" ref={contentRef} />
+          {picker && (
+            <IconPickerPopover
+              anchor={picker}
+              onChange={(next) => editor.updateBlock(block, { props: { icon: next ?? '' } })}
+              onClose={() => setPicker(null)}
+            />
+          )}
+        </div>
+      )
+    }
   }
 )
 
