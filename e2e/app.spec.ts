@@ -221,6 +221,10 @@ test('page icon from the emoji picker and an uploaded cover', async ({ nb, tmp }
   await page.getByRole('button', { name: 'Add cover' }).click()
   await expect(page.getByTestId('page-cover').locator('img')).toHaveJSProperty('naturalWidth', 1)
   await waitForFile(join(workspace, 'Trip.md'), /cover: attachments\/cover-\d+\.png/)
+
+  await page.getByTestId('page-cover').hover()
+  await page.getByRole('button', { name: 'Reposition' }).click({ timeout: 2000 })
+  await expect(page.getByRole('button', { name: 'Save position' })).toBeVisible()
 })
 
 test('a title typed just before quitting is kept', async ({ nb }) => {
