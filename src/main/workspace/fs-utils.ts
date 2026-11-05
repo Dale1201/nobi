@@ -1,8 +1,32 @@
-import { open, rename, unlink, stat, readdir, rmdir } from 'node:fs/promises'
+import { link, open, rename, unlink, stat, readdir, rmdir } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { basename, dirname, join } from 'node:path'
 
 export async function writeFileAtomic(path: string, data: string | Uint8Array): Promise<void> {
+  const tmp = await writeTemp(path, data)
+  try {
+    await rename(tmp, path)
+  } catch (err) {
+    await unlink(tmp).catch(() => {})
+    throw err
+  }
+}
+
+/** Like `writeFileAtomic`, but leaves a file already at `path` alone and returns false. */
+export async function createFileAtomic(path: string, data: string | Uint8Array): Promise<boolean> {
+  const tmp = await writeTemp(path, data)
+  try {
+    await link(tmp, path)
+    return true
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false
+    throw err
+  } finally {
+    await unlink(tmp).catch(() => {})
+  }
+}
+
+async function writeTemp(path: string, data: string | Uint8Array): Promise<string> {
   const tmp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString('hex')}.tmp`)
   const fh = await open(tmp, 'w')
   try {
@@ -11,12 +35,7 @@ export async function writeFileAtomic(path: string, data: string | Uint8Array): 
   } finally {
     await fh.close()
   }
-  try {
-    await rename(tmp, path)
-  } catch (err) {
-    await unlink(tmp).catch(() => {})
-    throw err
-  }
+  return tmp
 }
 
 export async function exists(path: string): Promise<boolean> {
