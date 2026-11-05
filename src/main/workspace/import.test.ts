@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { WorkspaceEvent } from './core'
@@ -25,10 +25,27 @@ const png = (async () =>
     headers: { 'content-type': 'image/png' }
   })) as unknown as typeof fetch
 
+// Converting the fixture is the slow part, so it runs once and each test lands a copy.
+let converted: { staging: string; manifest: ImportManifest }
+beforeAll(async () => {
+  const staging = await mkdtemp(join(tmpdir(), 'nobsidian-import-fixture-'))
+  converted = { staging, manifest: await runImport({ zips: [FIXTURE_ZIP], staging, fetch: png }) }
+})
+afterAll(async () => {
+  await rm(converted.staging, { recursive: true, force: true })
+})
+
 async function importFixture(ws: Workspace): Promise<ImportManifest & { staging: string }> {
   const staging = await ws.createImportStaging()
-  const manifest = await runImport({ zips: [FIXTURE_ZIP], staging, fetch: png })
-  return { ...manifest, staging }
+  await cp(converted.staging, staging, { recursive: true })
+  const moved = (path?: string): string | undefined =>
+    path && join(staging, path.slice(converted.staging.length))
+  const { manifest } = converted
+  return {
+    ...structuredClone(manifest),
+    files: manifest.files.map((f) => ({ ...f, path: moved(f.path) })),
+    staging
+  }
 }
 
 const paragraph = (value: string): Block => ({

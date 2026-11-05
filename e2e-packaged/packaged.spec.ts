@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
 import { expect, test } from '../e2e/fixtures'
+import { stubOpenDialog } from '../e2e/helpers'
 import { launchElectron } from '../e2e/launch'
 
 const APP = resolve('dist/mac-arm64/Nobsidian.app/Contents/MacOS/Nobsidian')
@@ -16,7 +17,6 @@ test('the packaged app launches to the welcome screen', async ({ tmp }) => {
   const page = await app.firstWindow()
   await expect(page.getByText('Welcome to Nobsidian')).toBeVisible()
   expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true)
-  await app.close()
 })
 
 // "Web" images the export links to are served locally.
@@ -44,18 +44,11 @@ test('the packaged app imports a Notion export in its worker', async ({ tmp }) =
   })
   const page = await app.firstWindow()
   await expect(page.getByRole('button', { name: 'Search' })).toBeVisible()
-  await app.evaluate(
-    ({ dialog, Menu }, filePaths) => {
-      dialog.showOpenDialog = (async () => ({
-        canceled: false,
-        filePaths
-      })) as typeof dialog.showOpenDialog
-      Menu.getApplicationMenu()!.getMenuItemById('import-notion')!.click()
-    },
-    [resolve('tests/fixtures/notion-export.zip')]
+  await stubOpenDialog(app, [resolve('tests/fixtures/notion-export.zip')])
+  await app.evaluate(({ Menu }) =>
+    Menu.getApplicationMenu()!.getMenuItemById('import-notion')!.click()
   )
   await expect(page.getByRole('status')).toContainText('Imported 10 pages. 2 things need a look.')
-  await app.close()
 })
 
 test('the packaged app draws with the fonts it ships', async ({ tmp }) => {
@@ -81,5 +74,4 @@ test('the packaged app draws with the fonts it ships', async ({ tmp }) => {
   const svg = await readFile(join(workspace, 'attachments', 'Drawing.excalidraw.svg'), 'utf8')
   expect(svg).toContain('font-family: Excalifont; src: url(data:font/woff2;base64,')
   expect(requests.filter((u) => !/^(file|data|blob|nbfile):/.test(u))).toEqual([])
-  await app.close()
 })

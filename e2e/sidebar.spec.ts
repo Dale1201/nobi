@@ -1,18 +1,27 @@
-import { access, mkdir, writeFile } from 'node:fs/promises'
+import { access } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
-import { expect, test, type AppFixture } from './fixtures'
+import { expect, test, type AppFixture, type Seed } from './fixtures'
+import { menu, waitForFile } from './helpers'
 
-async function nestedWorkspace(nb: AppFixture): Promise<Page> {
-  await mkdir(join(nb.workspace, 'Top', 'Middle'), { recursive: true })
-  await writeFile(join(nb.workspace, 'Top.md'), 'top\n')
-  await writeFile(join(nb.workspace, 'Top', 'Middle.md'), 'middle\n')
-  await writeFile(join(nb.workspace, 'Top', 'Middle', 'Deep.md'), 'deep\n')
-  await writeFile(join(nb.workspace, 'Linker.md'), '[Deep](Top/Middle/Deep.md "page")\n')
-  const page = await nb.relaunch()
-  await expect(page.getByTestId('sidebar-row-Top')).toBeVisible()
-  return page
+type NbWith = (seed: Seed) => Promise<AppFixture>
+
+async function nestedWorkspace(nbWith: NbWith): Promise<AppFixture> {
+  const nb = await nbWith({
+    files: {
+      'Top.md': 'top\n',
+      'Top/Middle.md': 'middle\n',
+      'Top/Middle/Deep.md': 'deep\n',
+      'Linker.md': '[Deep](Top/Middle/Deep.md "page")\n'
+    }
+  })
+  await expect(nb.page.getByTestId('sidebar-row-Top')).toBeVisible()
+  return nb
 }
+
+const forty = Object.fromEntries(
+  Array.from({ length: 40 }, (_, i) => [`Page ${String(i).padStart(2, '0')}.md`, 'x\n'])
+)
 
 async function search(page: Page, text: string): Promise<void> {
   await page.getByRole('button', { name: 'Search' }).first().click()
@@ -23,63 +32,61 @@ async function search(page: Page, text: string): Promise<void> {
   await expect(page.getByTestId('page-title')).toHaveText(text)
 }
 
-async function menuCommand(nb: AppFixture, label: string): Promise<void> {
-  await nb.app.evaluate(
-    ({ Menu }, label) =>
-      Menu.getApplicationMenu()
-        ?.items.flatMap((i) => i.submenu?.items ?? [])
-        .find((i) => i.label === label)
-        ?.click(),
-    label
+/** Lets React effects of the last render, such as a row scrolling itself into view, run. */
+async function nextFrames(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
   )
 }
 
-test('opening a nested page from search reveals and highlights it', async ({ nb }) => {
-  const page = await nestedWorkspace(nb)
+test('the expand arrow shows on hover, and search reveals and highlights a nested page even after its parent is collapsed', async ({
+  nbWith
+}) => {
+  const { page } = await nestedWorkspace(nbWith)
+  const top = page.getByTestId('sidebar-row-Top')
+  const arrow = top.getByRole('button', { name: 'Expand' })
+  await page.mouse.move(800, 600)
+  await expect(arrow).toBeHidden()
+  await expect(top.locator('.page-icon')).toBeVisible()
+  await top.hover()
+  await expect(arrow).toBeVisible()
+  await expect(top.locator('.page-icon')).toBeHidden()
+
   await expect(page.getByTestId('sidebar-row-Deep')).toBeHidden()
   await search(page, 'Deep')
   await expect(page.getByTestId('sidebar-row-Middle')).toBeVisible()
   await expect(page.getByTestId('sidebar-row-Deep')).toHaveClass(/active/)
-})
 
-test('following a link reveals the page', async ({ nb }) => {
-  const page = await nestedWorkspace(nb)
-  await page.getByTestId('sidebar-row-Linker').click()
-  await page.locator('.nb-page-link').click()
+  await top.hover()
+  await top.getByRole('button', { name: 'Collapse' }).click()
+  await expect(page.getByTestId('sidebar-row-Deep')).toBeHidden()
+  await search(page, 'Deep')
   await expect(page.getByTestId('sidebar-row-Deep')).toHaveClass(/active/)
 })
 
-test('Back reveals the previous page again after its parent was collapsed', async ({ nb }) => {
-  const page = await nestedWorkspace(nb)
-  await search(page, 'Deep')
-  await expect(page.getByTestId('sidebar-row-Deep')).toBeVisible()
+test('following a link reveals the page, and Back reveals it again after its parent was collapsed', async ({
+  nbWith
+}) => {
+  const nb = await nestedWorkspace(nbWith)
+  const { page } = nb
   await page.getByTestId('sidebar-row-Linker').click()
+  await page.locator('.nb-page-link').click()
+  await expect(page.getByTestId('sidebar-row-Deep')).toHaveClass(/active/)
+
+  await page.getByTestId('sidebar-row-Linker').click()
+  await expect(page.getByTestId('page-title')).toHaveText('Linker')
   const top = page.getByTestId('sidebar-row-Top')
   await top.hover()
   await top.getByRole('button', { name: 'Collapse' }).click()
   await expect(page.getByTestId('sidebar-row-Deep')).toBeHidden()
-  await menuCommand(nb, 'Back')
+  await menu(nb.app, 'Back')
   await expect(page.getByTestId('sidebar-row-Deep')).toHaveClass(/active/)
 })
 
-test('the current row scrolls into view', async ({ nb }) => {
-  for (let i = 0; i < 40; i++) {
-    await writeFile(join(nb.workspace, `Page ${String(i).padStart(2, '0')}.md`), 'x\n')
-  }
-  await mkdir(join(nb.workspace, 'Zzz'))
-  await writeFile(join(nb.workspace, 'Zzz.md'), 'z\n')
-  await writeFile(join(nb.workspace, 'Zzz', 'Target.md'), 'target\n')
-  const page = await nb.relaunch()
-  await expect(page.getByTestId('sidebar-row-Zzz')).toBeAttached()
-  await search(page, 'Target')
-  await expect(page.getByTestId('sidebar-row-Target')).toBeInViewport()
-})
-
-test('favorites expand on their own', async ({ nb }) => {
-  await mkdir(join(nb.workspace, 'Starred'))
-  await writeFile(join(nb.workspace, 'Starred.md'), 's\n')
-  await writeFile(join(nb.workspace, 'Starred', 'Child.md'), 'c\n')
-  const page = await nb.relaunch()
+test('favorites expand on their own, and + on a favorite adds the page inside it', async ({
+  nbWith
+}) => {
+  const { page } = await nbWith({ files: { 'Starred.md': 's\n', 'Starred/Child.md': 'c\n' } })
   const pagesRow = page.getByTestId('sidebar-row-Starred')
   await pagesRow.hover()
   await pagesRow.getByRole('button', { name: 'Page actions' }).click()
@@ -91,34 +98,38 @@ test('favorites expand on their own', async ({ nb }) => {
   await expect(favorites.getByTestId('sidebar-row-Child')).toBeVisible()
   const pages = page.locator('.sidebar-section', { hasText: 'Pages' })
   await expect(pages.getByTestId('sidebar-row-Child')).toBeHidden()
+
+  await favRow.hover()
+  await favRow.getByRole('button', { name: 'Collapse' }).click()
+  await expect(favorites.getByTestId('sidebar-row-Child')).toBeHidden()
+  await favRow.hover()
+  await favRow.getByRole('button', { name: 'Add a page inside' }).click()
+  await expect(favorites.getByTestId('sidebar-row-Untitled')).toBeVisible()
 })
 
-test('a page without sub-pages says so when expanded', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Leaf.md'), 'l\n')
-  const page = await nb.relaunch()
+test('a page without sub-pages says so when expanded', async ({ nbWith }) => {
+  const { page } = await nbWith({ files: { 'Leaf.md': 'l\n' } })
   const row = page.getByTestId('sidebar-row-Leaf')
   await row.hover()
   await row.getByRole('button', { name: 'Expand' }).click()
   await expect(page.locator('.sidebar-empty')).toHaveText('No pages inside')
 })
 
-test('holding a dragged page over a collapsed page opens it, and dropping nests it', async ({
-  nb
+test('holding a dragged page over a collapsed page opens it, and dropping nests and links it', async ({
+  nbWith
 }) => {
-  await mkdir(join(nb.workspace, 'Folder'))
-  await writeFile(join(nb.workspace, 'Folder.md'), 'f\n')
-  await writeFile(join(nb.workspace, 'Folder', 'Inside.md'), 'i\n')
-  await writeFile(join(nb.workspace, 'Mover.md'), 'm\n')
-  const page = await nb.relaunch()
+  const nb = await nbWith({
+    files: { 'Folder.md': 'f\n', 'Folder/Inside.md': 'i\n', 'Mover.md': 'm\n' }
+  })
+  const { page } = nb
   await page.getByTestId('sidebar-row-Mover').hover()
   await page.mouse.down()
   const box = (await page.getByTestId('sidebar-row-Folder').boundingBox())!
   const x = box.x + box.width / 2
   const y = box.y + box.height / 2
   await page.mouse.move(x, y, { steps: 5 })
-  await page.waitForTimeout(700)
-  await page.mouse.move(x + 2, y, { steps: 2 })
   await expect(page.getByTestId('sidebar-row-Inside')).toBeVisible()
+  await page.mouse.move(x + 2, y, { steps: 2 })
   await page.mouse.up()
   await expect
     .poll(() =>
@@ -128,15 +139,12 @@ test('holding a dragged page over a collapsed page opens it, and dropping nests 
       )
     )
     .toBe(true)
+  await waitForFile(join(nb.workspace, 'Folder.md'), '[Mover](Folder/Mover.md "page")')
 })
 
-test('the sidebar scrolls while a page is dragged near its bottom edge', async ({ nb }) => {
-  for (let i = 0; i < 40; i++) {
-    await writeFile(join(nb.workspace, `Page ${String(i).padStart(2, '0')}.md`), 'x\n')
-  }
-  const page = await nb.relaunch()
+test('the sidebar scrolls while a page is dragged near its bottom edge', async ({ nbWith }) => {
+  const { page } = await nbWith({ files: forty })
   const scroller = page.locator('.sidebar-scroll')
-  // The last pages written may join a second later, once they settle.
   await expect(page.getByTestId('sidebar-row-Page 39')).toBeAttached()
   await page.getByTestId('sidebar-row-Page 00').hover()
   await page.mouse.down()
@@ -148,11 +156,8 @@ test('the sidebar scrolls while a page is dragged near its bottom edge', async (
   await page.mouse.up()
 })
 
-test('starring the current page does not move the sidebar', async ({ nb }) => {
-  for (let i = 0; i < 40; i++) {
-    await writeFile(join(nb.workspace, `Page ${String(i).padStart(2, '0')}.md`), 'x\n')
-  }
-  const page = await nb.relaunch()
+test('starring the current page does not move the sidebar', async ({ nbWith }) => {
+  const { page } = await nbWith({ files: forty })
   const scroller = page.locator('.sidebar-scroll')
   await expect(page.getByTestId('sidebar-row-Page 39')).toBeAttached()
   await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight))
@@ -163,24 +168,27 @@ test('starring the current page does not move the sidebar', async ({ nb }) => {
     .getByTestId('sidebar-row-Page 39')
   const before = (await row.boundingBox())!.y
   await page.getByRole('button', { name: 'Add to Favorites' }).click()
-  await expect(page.locator('.sidebar-section', { hasText: 'Favorites' })).toBeAttached()
-  await page.waitForTimeout(300)
+  await expect(
+    page.locator('.sidebar-section', { hasText: 'Favorites' }).getByTestId('sidebar-row-Page 39')
+  ).toBeVisible()
+  await nextFrames(page)
   // Scroll anchoring may raise scrollTop by the new section's height; the row itself stays put.
   expect(Math.abs((await row.boundingBox())!.y - before)).toBeLessThanOrEqual(1)
 })
 
-test('clicking a favorite of a nested page keeps the favorite in view', async ({ nb }) => {
-  for (let i = 0; i < 40; i++) {
-    await writeFile(join(nb.workspace, `Page ${String(i).padStart(2, '0')}.md`), 'x\n')
-  }
-  await mkdir(join(nb.workspace, 'Zzz'))
-  await writeFile(join(nb.workspace, 'Zzz.md'), 'z\n')
-  await writeFile(join(nb.workspace, 'Zzz', 'Target.md'), 'target\n')
-  const page = await nb.relaunch()
+test('the current row scrolls into view, and clicking a favorite of a nested page keeps the favorite in view', async ({
+  nbWith
+}) => {
+  const { page } = await nbWith({
+    files: { ...forty, 'Zzz.md': 'z\n', 'Zzz/Target.md': 'target\n' }
+  })
   await expect(page.getByTestId('sidebar-row-Zzz')).toBeAttached()
   await search(page, 'Target')
+  await expect(page.getByTestId('sidebar-row-Target')).toBeInViewport()
+
   await page.getByRole('button', { name: 'Add to Favorites' }).click()
-  const zzz = page.locator('.sidebar-section', { hasText: 'Pages' }).getByTestId('sidebar-row-Zzz')
+  const pages = page.locator('.sidebar-section', { hasText: 'Pages' })
+  const zzz = pages.getByTestId('sidebar-row-Zzz')
   await zzz.hover()
   await zzz.getByRole('button', { name: 'Collapse' }).click()
   await page.getByTestId('sidebar-row-Page 00').click()
@@ -190,43 +198,8 @@ test('clicking a favorite of a nested page keeps the favorite in view', async ({
     .getByTestId('sidebar-row-Target')
   await favorite.click()
   await expect(page.getByTestId('page-title')).toHaveText('Target')
-  await page.waitForTimeout(300)
+  // Opening the page expands its parent in the page tree, which must not scroll the favorite away.
+  await expect(pages.getByTestId('sidebar-row-Target')).toBeVisible()
+  await nextFrames(page)
   await expect(favorite).toBeInViewport()
-})
-
-test('+ on a favorite adds the page inside the favorite', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Starred.md'), 's\n')
-  const page = await nb.relaunch()
-  const pagesRow = page.getByTestId('sidebar-row-Starred')
-  await pagesRow.hover()
-  await pagesRow.getByRole('button', { name: 'Page actions' }).click()
-  await page.getByRole('menuitem', { name: 'Add to Favorites' }).click()
-  const favorites = page.locator('.sidebar-section', { hasText: 'Favorites' })
-  const favRow = favorites.getByTestId('sidebar-row-Starred')
-  await favRow.hover()
-  await favRow.getByRole('button', { name: 'Add a page inside' }).click()
-  await expect(favorites.getByTestId('sidebar-row-Untitled')).toBeVisible()
-})
-
-test('searching for the page you are on reveals it again', async ({ nb }) => {
-  const page = await nestedWorkspace(nb)
-  await search(page, 'Deep')
-  const top = page.getByTestId('sidebar-row-Top')
-  await top.hover()
-  await top.getByRole('button', { name: 'Collapse' }).click()
-  await expect(page.getByTestId('sidebar-row-Deep')).toBeHidden()
-  await search(page, 'Deep')
-  await expect(page.getByTestId('sidebar-row-Deep')).toHaveClass(/active/)
-})
-
-test('the expand arrow replaces the page icon only while the row is hovered', async ({ nb }) => {
-  const page = await nestedWorkspace(nb)
-  const row = page.getByTestId('sidebar-row-Top')
-  const arrow = row.getByRole('button', { name: 'Expand' })
-  await page.mouse.move(800, 600)
-  await expect(arrow).toBeHidden()
-  await expect(row.locator('.page-icon')).toBeVisible()
-  await row.hover()
-  await expect(arrow).toBeVisible()
-  await expect(row.locator('.page-icon')).toBeHidden()
 })

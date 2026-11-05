@@ -53,7 +53,9 @@ const menuLabels = (app: ElectronApplication): Promise<string[]> =>
     )
   )
 
-test('right-clicking a misspelled word offers fixes that replace it', async ({ nb }) => {
+test('right-clicking a misspelled word offers fixes that replace it, a correct one only edit actions', async ({
+  nb
+}) => {
   const { app, page } = nb
   await captureMenus(app)
   await newPage(page, 'Spelling')
@@ -69,6 +71,12 @@ test('right-clicking a misspelled word offers fixes that replace it', async ({ n
     })
     .toBe(true)
   expect(await underlined(page, block, 'this')).toBe(false)
+  const correct = await wordBox(block, 'this')
+  await page.mouse.click(correct.x + correct.width / 2, correct.y + correct.height / 2, {
+    button: 'right'
+  })
+  await expect.poll(() => menuLabels(app)).toEqual(['Cut', 'Copy', 'Paste'])
+
   const word = await wordBox(block, 'mispeled')
   await page.mouse.click(word.x + word.width / 2, word.y + word.height / 2, { button: 'right' })
   await expect.poll(async () => (await menuLabels(app))[0]).toBe('misspelled')
@@ -85,13 +93,4 @@ test('right-clicking a misspelled word offers fixes that replace it', async ({ n
   await waitForFile(join(nb.workspace, 'Spelling.md'), 'Fix this misspelled word')
   await page.keyboard.press('Meta+z')
   await expect(block).toHaveText('Fix this mispeled word')
-})
-
-test('right-clicking a correct word shows only the edit actions', async ({ nb }) => {
-  const { app, page } = nb
-  await captureMenus(app)
-  await newPage(page, 'Correct')
-  await page.keyboard.type('Every word here is right')
-  await page.getByText('Every word here is right').click({ button: 'right' })
-  await expect.poll(() => menuLabels(app)).toEqual(['Cut', 'Copy', 'Paste'])
 })

@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ImportStatus } from '../../shared/types'
 import { APP_DIR } from '../workspace/state'
 import { Workspace } from '../workspace/workspace'
@@ -217,8 +217,9 @@ describe('ImportService', () => {
     }
     const cancelled = service.cancel()
     hold.open()
-    setTimeout(cleanupGate.open, 100)
+    // The start waits on the held cleanup, so it overlaps it whatever the timing.
     const starting = service.start(ws, [FIXTURE_ZIP])
+    cleanupGate.open()
     expect(await cancelled).toBe(true)
     await starting
     expect(await settled()).toMatchObject({ state: 'done', pages: 10 })
@@ -308,8 +309,7 @@ describe('ImportService', () => {
     const { service, workers } = manualService()
     await service.start(ws, [FIXTURE_ZIP])
     const cancelled = service.cancel()
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(workers[0].commands).toEqual([{ type: 'stop' }])
+    await vi.waitFor(() => expect(workers[0].commands).toEqual([{ type: 'stop' }]))
     expect(await stagingFolders(ws)).toHaveLength(1)
     workers[0].emit('exit', 0)
     expect(await cancelled).toBe(true)

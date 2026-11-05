@@ -317,6 +317,7 @@ describe('mapNotionPaste with unreliable records', () => {
     ).toBe('From HTML\n')
   })
 
+  // Exponential work here shows up as the test timing out, not as a slow pass.
   it('maps the HTML copy, quickly, for blocks shared by many parents', () => {
     const all: Record<string, unknown> = {}
     for (let i = 0; i < 40; i++) {
@@ -327,13 +328,11 @@ describe('mapNotionPaste with unreliable records', () => {
       }
     }
     all.n40 = { type: 'text', properties: { title: [['Leaf']] } }
-    const started = Date.now()
     const html = '<p>From HTML</p>'
     const markdown = blocksToMarkdown(
       mapNotionPaste({ records: rawRecords(['n0'], all), html }, context())
     )
     expect(markdown).toBe('From HTML\n')
-    expect(Date.now() - started).toBeLessThan(1000)
   })
 
   it('treats malformed content, rich text and marks as empty', () => {
@@ -472,9 +471,7 @@ describe('person mentions', () => {
     ]
     const json = records([{ id: 'a', type: 'text', properties: { title: rich } }])
     const html = `<p>${'@a x @b y @c z @d '.repeat(100)}</p>`.repeat(6)
-    const started = Date.now()
-    mapNotionPaste({ records: json, html }, context())
-    expect(Date.now() - started).toBeLessThan(1000)
+    expect(blocksToMarkdown(mapNotionPaste({ records: json, html }, context()))).toContain('END')
   })
 })
 

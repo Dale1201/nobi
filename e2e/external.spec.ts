@@ -2,12 +2,17 @@ import { chmod, readFile, readdir, rename, rm, unlink, writeFile } from 'node:fs
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { editor, newPage, waitForFile } from './helpers'
-
-/** The page's id line, so an outside edit keeps the page's identity like a real editor would. */
-async function header(file: string): Promise<string> {
-  return /^---\n[\s\S]*?\n---\n/.exec(await readFile(file, 'utf8'))![0]
-}
+import {
+  activePane,
+  afterPendingSaves,
+  caretToLineEnd,
+  clickInEditor,
+  editor,
+  frontmatter,
+  newPage,
+  traceIpc,
+  waitForFile
+} from './helpers'
 
 /** Sets the mode of the history folder and every page's folder in it. */
 async function chmodHistory(workspace: string, mode: number): Promise<void> {
@@ -23,13 +28,16 @@ async function historyTexts(workspace: string, id: string): Promise<string[]> {
 }
 
 /** A page with unsaved edits under the conflict banner; returns the page file and its id. */
-async function conflicted(nb: { page: Page; workspace: string }): Promise<[string, string]> {
+async function conflicted(
+  nb: { page: Page; workspace: string },
+  title = 'Shared'
+): Promise<[string, string]> {
   const { page, workspace } = nb
-  await newPage(page, 'Shared')
+  await newPage(page, title)
   await page.keyboard.type('Base')
-  const file = join(workspace, 'Shared.md')
+  const file = join(workspace, `${title}.md`)
   await waitForFile(file, 'Base')
-  const head = await header(file)
+  const head = await frontmatter(file)
   await page.keyboard.type(' plus mine')
   await writeFile(file, `${head}\nTheirs\n`)
   await expect(page.getByRole('status')).toContainText('This page was changed outside Nobsidian.')
@@ -45,58 +53,40 @@ test('an outside edit reloads the open page when nothing is unsaved', async ({ n
   await page.keyboard.type('Original')
   const file = join(workspace, 'Shared.md')
   await waitForFile(file, 'Original')
-  await writeFile(file, `${await header(file)}\nEdited in another app\n`)
+  await writeFile(file, `${await frontmatter(file)}\nEdited in another app\n`)
   await expect(page.locator(editor)).toHaveText('Edited in another app')
   await expect(page.getByRole('status')).toHaveCount(0)
 })
 
 test('an outside edit during typing asks before replacing it, and keeps both', async ({ nb }) => {
   const { page, workspace } = nb
-  await newPage(page, 'Shared')
-  await page.keyboard.type('Base')
-  const file = join(workspace, 'Shared.md')
-  await waitForFile(file, 'Base')
-  const head = await header(file)
-  const id = /id: (\S+)/.exec(head)![1]
-  const history = async (): Promise<string[]> => {
-    const dir = join(workspace, '.nobsidian', 'history', id)
-    const names = (await readdir(dir).catch(() => [])).filter((v) => v.endsWith('.md'))
-    return Promise.all(names.map((v) => readFile(join(dir, v), 'utf8')))
-  }
-
-  await page.keyboard.type(' plus mine')
-  await writeFile(file, `${head}\nTheirs\n`)
+  const [file, id] = await conflicted(nb)
+  const head = await frontmatter(file)
   const banner = page.getByRole('status')
-  await expect(banner).toContainText('This page was changed outside Nobsidian.')
   await expect(page.locator(editor)).toHaveText('Base plus mine')
   await banner.getByRole('button', { name: 'Keep mine' }).click()
   await expect(banner).toHaveCount(0)
   await waitForFile(file, 'Base plus mine')
-  expect((await history()).some((t) => t.endsWith('\nTheirs\n'))).toBe(true)
+  expect((await historyTexts(workspace, id)).some((t) => t.endsWith('\nTheirs\n'))).toBe(true)
 
   await page.keyboard.type(' again')
   await writeFile(file, `${head}\nTheirs again\n`)
   await banner.getByRole('button', { name: 'Reload' }).click()
   await expect(page.locator(editor)).toHaveText('Theirs again')
   await expect
-    .poll(async () => (await history()).some((t) => t.includes('Base plus mine again')))
+    .poll(async () =>
+      (await historyTexts(workspace, id)).some((t) => t.includes('Base plus mine again'))
+    )
     .toBe(true)
-  await page.waitForTimeout(800)
-  expect(await readFile(file, 'utf8')).toContain('Theirs again')
+  await afterPendingSaves(page)
+  expect(await readFile(file, 'utf8'), 'no save of the replaced edits').toContain('Theirs again')
 })
 
 test('the banner stays until the user chooses, even after opening history', async ({ nb }) => {
-  const { page, workspace } = nb
-  await newPage(page, 'Shared')
-  await page.keyboard.type('Base')
-  const file = join(workspace, 'Shared.md')
-  await waitForFile(file, 'Base')
-  const head = await header(file)
-
-  await page.keyboard.type(' plus mine')
-  await writeFile(file, `${head}\nTheirs\n`)
+  const { page } = nb
+  const [file, id] = await conflicted(nb)
+  const head = await frontmatter(file)
   const banner = page.getByRole('status')
-  await expect(banner).toContainText('This page was changed outside Nobsidian.')
 
   await page.getByRole('button', { name: 'Page menu' }).click()
   await page.getByRole('menuitem', { name: 'Page history' }).click()
@@ -104,42 +94,26 @@ test('the banner stays until the user chooses, even after opening history', asyn
   await dialog.getByRole('button', { name: 'Close' }).click()
   await expect(dialog).toHaveCount(0)
 
+  await page.evaluate((id) => {
+    const w = window as { changed?: boolean }
+    window.api.on('page:changed', (e) => {
+      if (e.id === id) w.changed = true
+    })
+  }, id)
+  const reads = await traceIpc(nb.app, 'page:read')
   await writeFile(file, `${head}\nTheirs again\n`)
-  await page.waitForTimeout(800)
+  await expect.poll(() => page.evaluate(() => (window as { changed?: boolean }).changed)).toBe(true)
+  // A reload would send its read as the change arrives; this round trip lands after it.
+  await page.evaluate(() => window.api.invoke('tree:get', undefined))
+  expect((await reads.counts()).started, 'the edited page was not read again').toBe(0)
   await expect(banner).toBeVisible()
   await expect(page.locator(editor)).toHaveText('Base plus mine')
 })
 
-test('a failed save keeps the edits and saves them once it can', async ({ nb }) => {
-  const { page, workspace } = nb
-  await newPage(page, 'Locked')
-  await page.keyboard.type('Start')
-  const file = join(workspace, 'Locked.md')
-  await waitForFile(file, 'Start')
-  try {
-    await chmod(workspace, 0o555)
-    await page.keyboard.type(' more')
-    await expect(page.getByRole('alert')).toContainText("Couldn't save")
-  } finally {
-    await chmod(workspace, 0o755)
-  }
-  await page.keyboard.type(' end')
-  await waitForFile(file, 'Start more end')
-})
-
 test('a failed Keep mine keeps the banner until the save succeeds', async ({ nb }) => {
   const { page, workspace } = nb
-  await newPage(page, 'Shared')
-  await page.keyboard.type('Base')
-  const file = join(workspace, 'Shared.md')
-  await waitForFile(file, 'Base')
-  const head = await header(file)
-
-  await page.keyboard.type(' plus mine')
-  await writeFile(file, `${head}\nTheirs\n`)
+  const [file] = await conflicted(nb)
   const banner = page.getByRole('status')
-  await expect(banner).toContainText('This page was changed outside Nobsidian.')
-
   try {
     await chmod(workspace, 0o555)
     await banner.getByRole('button', { name: 'Keep mine' }).click()
@@ -158,28 +132,14 @@ test('leaving a page during a conflict keeps the outside version and the edits i
 }) => {
   const { page, workspace } = nb
   await newPage(page, 'Other')
-  await newPage(page, 'Mine')
-  await page.keyboard.type('Base')
-  const file = join(workspace, 'Mine.md')
-  await waitForFile(file, 'Base')
-  const head = await header(file)
-  const id = /id: (\S+)/.exec(head)![1]
-
-  await page.keyboard.type(' plus mine')
-  await writeFile(file, `${head}\nTheirs\n`)
-  await expect(page.getByRole('status')).toContainText('This page was changed outside Nobsidian.')
+  const [file, id] = await conflicted(nb)
   await page.getByTestId('sidebar-row-Other').click()
-
-  const dir = join(workspace, '.nobsidian', 'history', id)
   await expect
-    .poll(async () => {
-      const names = (await readdir(dir).catch(() => [])).filter((v) => v.endsWith('.md'))
-      const texts = await Promise.all(names.map((v) => readFile(join(dir, v), 'utf8')))
-      return texts.some((t) => t.includes('Base plus mine'))
-    })
+    .poll(async () => (await historyTexts(workspace, id)).some((t) => t.includes('Base plus mine')))
     .toBe(true)
-  expect(await readFile(file, 'utf8')).toContain('Theirs')
-  expect(await readFile(file, 'utf8')).not.toContain('plus mine')
+  const text = await readFile(file, 'utf8')
+  expect(text).toContain('Theirs')
+  expect(text).not.toContain('plus mine')
 })
 
 test('Reload keeps the edits and the banner when they cannot be kept in history', async ({
@@ -207,7 +167,7 @@ test('Reload keeps the edits and the banner when they cannot be kept in history'
 test('leaving a page whose edits cannot be kept brings it back with the edits', async ({ nb }) => {
   const { page, workspace } = nb
   // The page comes back with its edits in a new tab.
-  const pane = page.locator('.tab-pane.active')
+  const pane = activePane(page)
   await newPage(page, 'Other')
   const [file, id] = await conflicted(nb)
   const banner = pane.getByRole('status')
@@ -229,12 +189,12 @@ test('leaving a page whose edits cannot be kept brings it back with the edits', 
   expect(await readFile(file, 'utf8')).toContain('Theirs')
 })
 
-test('leaving a page that cannot be saved brings it back and saves it once it can', async ({
+test('a page that cannot be saved keeps its edits, comes back when left, and saves once it can', async ({
   nb
 }) => {
   const { page, workspace } = nb
   // The page comes back with its edits in a new tab.
-  const pane = page.locator('.tab-pane.active')
+  const pane = activePane(page)
   await newPage(page, 'Other')
   await newPage(page, 'Locked')
   await page.keyboard.type('Start')
@@ -243,6 +203,7 @@ test('leaving a page that cannot be saved brings it back and saves it once it ca
   try {
     await chmod(workspace, 0o555)
     await page.keyboard.type(' more')
+    await expect(page.getByRole('alert')).toContainText("Couldn't save")
     await page.getByTestId('sidebar-row-Other').click()
     await expect(page.getByRole('alert')).toContainText("Couldn't save the page")
     await expect(pane.getByTestId('page-title')).toHaveText('Locked')
@@ -251,9 +212,12 @@ test('leaving a page that cannot be saved brings it back and saves it once it ca
   } finally {
     await chmod(workspace, 0o755)
   }
+  await clickInEditor(page, 'Start more')
+  await caretToLineEnd(page)
+  await page.keyboard.type(' end')
+  await waitForFile(file, 'Start more end')
   await page.getByTestId('sidebar-row-Other').click()
   await expect(pane.getByTestId('page-title')).toHaveText('Other')
-  await waitForFile(file, 'Start more')
 })
 
 test('a page deleted outside while its edits cannot be kept leaves a recovered page', async ({
@@ -261,7 +225,7 @@ test('a page deleted outside while its edits cannot be kept leaves a recovered p
 }) => {
   const { page, workspace } = nb
   // The page comes back with its edits in a new tab.
-  const pane = page.locator('.tab-pane.active')
+  const pane = activePane(page)
   const [file] = await conflicted(nb)
   try {
     await chmodHistory(workspace, 0o555)
@@ -317,17 +281,10 @@ test('a notes folder that disappears while open shows the locate screen', async 
   await newPage(page, 'Anything')
   await page.keyboard.type('Some words')
   await waitForFile(join(workspace, 'Anything.md'), 'Some words')
+  await page.keyboard.type(' and more')
   await rm(workspace, { recursive: true, force: true })
   await expect(page.getByRole('heading', { name: "Can't find your notes" })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Locate folder' })).toBeVisible()
-  await expect
-    .poll(
-      () =>
-        readdir(workspace).then(
-          () => 'exists',
-          () => 'gone'
-        ),
-      { timeout: 3000 }
-    )
-    .toBe('gone')
+  await afterPendingSaves(page)
+  await expect(readdir(workspace)).rejects.toThrow()
 })

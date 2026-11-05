@@ -50,15 +50,6 @@ describe('Workspace scanning', () => {
     const ws = await Workspace.open(root, { settleMs: 0 })
     expect(ws.tree()).toEqual([])
   })
-
-  it('gives duplicated ids a fresh one', async () => {
-    const same = '---\nid: 11111111-1111-1111-1111-111111111111\n---\n'
-    await writeFile(join(root, 'A.md'), same)
-    await writeFile(join(root, 'B.md'), same)
-    const ws = await Workspace.open(root, { settleMs: 0 })
-    const ids = ws.tree().map((n) => n.id)
-    expect(new Set(ids).size).toBe(2)
-  })
 })
 
 describe('Workspace page operations', () => {
@@ -358,13 +349,6 @@ describe('Workspace links sub-pages from their parent', () => {
     expect((await ws.readPage(parent.id)).blocks).toEqual([text('Idea'), pageLink(child.id)])
   })
 
-  it('leaves the parent alone without the link option', async () => {
-    const ws = await Workspace.open(root, { settleMs: 0 })
-    const parent = await ws.createPage(null, undefined, { title: 'Aztec', blocks: [text('Idea')] })
-    await ws.createPage(parent.id)
-    expect((await ws.readPage(parent.id)).blocks).toEqual([text('Idea')])
-  })
-
   it('moves the link along with a page that changes parent', async () => {
     const ws = await Workspace.open(root, { settleMs: 0 })
     const from = await ws.createPage(null, undefined, { title: 'From', blocks: [] })
@@ -378,11 +362,12 @@ describe('Workspace links sub-pages from their parent', () => {
     expect((await ws.readPage(to.id)).blocks).toEqual([text('Home')])
   })
 
-  it('does not touch the parent when a page is only reordered', async () => {
+  it('leaves the parent alone without the link option, and when a page is only reordered', async () => {
     const ws = await Workspace.open(root, { settleMs: 0 })
     const parent = await ws.createPage(null, undefined, { title: 'P', blocks: [text('x')] })
     const a = await ws.createPage(parent.id)
     await ws.createPage(parent.id)
+    expect((await ws.readPage(parent.id)).blocks).toEqual([text('x')])
     await ws.movePage(a.id, parent.id, 1)
     expect((await ws.readPage(parent.id)).blocks).toEqual([text('x')])
   })

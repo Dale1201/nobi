@@ -11,107 +11,94 @@ const markers = (page: Page, type: string): Promise<string[]> =>
     type
   )
 
-test('nested blocks have no guide line', async ({ nb }) => {
-  const page = await openFile(nb, 'Nested', '- one\n  - two\n    - three\n')
-  const borders = await page.evaluate(() =>
-    [...document.querySelectorAll('.bn-editor .bn-block-outer')].map(
-      (el) => getComputedStyle(el, '::before').borderLeftStyle
+/** How far a child block starts left of its parent's text; Notion puts it 6px before. */
+const childOffset = (page: Page, parent: string, child: string): Promise<number> =>
+  page.evaluate(
+    ([parent, child]) => {
+      const left = (selector: string, text: string): number =>
+        [...document.querySelectorAll(`.bn-editor ${selector}`)]
+          .find((e) => e.textContent === text)!
+          .getBoundingClientRect().left
+      return (
+        Math.round(left('.bn-inline-content', parent)) -
+        Math.round(left('.bn-block-content', child))
+      )
+    },
+    [parent, child]
+  )
+
+test('list markers change with depth, keep their start and sit in a 24px column like Notion', async ({
+  nbWith
+}) => {
+  const { page } = await openFile(
+    nbWith,
+    'Lists',
+    '- b1\n  - b2\n    - b3\n      - b4\n\n' +
+      '1. n1\n2. n2\n   1. n3\n   2. n4\n      1. n5\n\nbreak\n\n3. n6\n4. n7\n'
+  )
+  await expect
+    .poll(() => markers(page, 'bulletListItem'), 'bullets change shape with depth and repeat')
+    .toEqual(['"•"', '"◦"', '"▪"', '"•"'])
+  await expect
+    .poll(() => markers(page, 'numberedListItem'), 'numbers go 1. a. i. and keep their start')
+    .toEqual(['"1."', '"2."', '"a."', '"b."', '"i."', '"3."', '"4."'])
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const s = getComputedStyle(
+          document.querySelector('.bn-editor [data-content-type="bulletListItem"]')!,
+          '::before'
+        )
+        return [s.width, s.fontSize, s.marginLeft, s.marginRight]
+      })
     )
-  )
-  expect(borders.length).toBeGreaterThan(2)
-  expect(borders.every((b) => b === 'none')).toBe(true)
-})
-
-test('bullets change shape with depth and repeat', async ({ nb }) => {
-  const page = await openFile(nb, 'Bullets', '- a\n  - b\n    - c\n      - d\n')
-  expect(await markers(page, 'bulletListItem')).toEqual(['"•"', '"◦"', '"▪"', '"•"'])
-})
-
-test('numbered lists go 1. a. i. by depth and keep their start', async ({ nb }) => {
-  const page = await openFile(
-    nb,
-    'Numbers',
-    '1. a\n2. b\n   1. c\n   2. d\n      1. e\n\nbreak\n\n3. x\n4. y\n'
-  )
-  expect(await markers(page, 'numberedListItem')).toEqual([
-    '"1."',
-    '"2."',
-    '"a."',
-    '"b."',
-    '"i."',
-    '"3."',
-    '"4."'
-  ])
-})
-
-test('list markers sit in a 24px column like Notion', async ({ nb }) => {
-  const page = await openFile(nb, 'Column', '- item\n')
-  const box = await page.evaluate(() => {
-    const el = document.querySelector('.bn-editor [data-content-type="bulletListItem"]')!
-    const s = getComputedStyle(el, '::before')
-    return {
-      width: s.width,
-      fontSize: s.fontSize,
-      marginLeft: s.marginLeft,
-      marginRight: s.marginRight
-    }
-  })
-  expect(box).toEqual({ width: '24px', fontSize: '24px', marginLeft: '2px', marginRight: '6px' })
-})
-
-test('checkboxes are drawn like Notion', async ({ nb }) => {
-  const page = await openFile(nb, 'Todos', '- [ ] open\n- [x] done\n')
-  const boxes = await page.evaluate(() =>
-    [...document.querySelectorAll('.bn-editor [data-content-type="checkListItem"] input')].map(
-      (el) => {
-        const s = getComputedStyle(el)
-        return { appearance: s.appearance, width: s.width, height: s.height, bg: s.backgroundColor }
-      }
+    .toEqual(['24px', '24px', '2px', '6px'])
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          [...document.querySelectorAll('.bn-editor .bn-block-outer')].every(
+            (el) => getComputedStyle(el, '::before').borderLeftStyle === 'none'
+          )
+        ),
+      'nested blocks have no guide line'
     )
-  )
-  expect(boxes[0]).toMatchObject({ appearance: 'none', width: '16px', height: '16px' })
-  expect(boxes[1].bg).toBe('rgb(39, 131, 222)')
-  const done = await page.evaluate(() => {
-    const el = document.querySelector(
-      '.bn-editor [data-content-type="checkListItem"][data-checked="true"] .bn-inline-content'
-    )!
-    const s = getComputedStyle(el)
-    return { opacity: s.opacity, line: s.textDecorationLine }
-  })
-  expect(done).toEqual({ opacity: '0.7', line: 'line-through' })
+    .toBe(true)
+  await expect.poll(() => childOffset(page, 'b1', 'b2'), 'a child lines up under the text').toBe(6)
 })
 
-test('an empty toggle says how to fill it', async ({ nb }) => {
-  const page = await openFile(nb, 'Toggle', '<details>\n<summary>Open me</summary>\n\n</details>\n')
+test('to-dos and toggles are drawn like Notion', async ({ nbWith }) => {
+  const { page } = await openFile(
+    nbWith,
+    'Todos',
+    '- [ ] open\n  - under task\n- [x] done\n\n<details>\n<summary>Open me</summary>\n\n</details>\n'
+  )
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('.bn-editor [data-content-type="checkListItem"] input')].map(
+          (el) => {
+            const s = getComputedStyle(el)
+            return [s.appearance, s.width, s.height, s.backgroundColor]
+          }
+        )
+      )
+    )
+    .toEqual([
+      ['none', '16px', '16px', expect.any(String)],
+      ['none', '16px', '16px', 'rgb(39, 131, 222)']
+    ])
+  await expect(
+    page.locator(`${editor} [data-checked="true"] .bn-inline-content`, { hasText: 'done' })
+  ).toHaveCSS('opacity', '0.7')
+  await expect(
+    page.locator(`${editor} [data-checked="true"] .bn-inline-content`, { hasText: 'done' })
+  ).toHaveCSS('text-decoration-line', 'line-through')
+  await expect
+    .poll(() => childOffset(page, 'open', 'under task'), 'a child lines up under the to-do text')
+    .toBe(6)
   await page.locator(`${editor} .bn-toggle-button`).click()
   await expect(page.locator(`${editor} .bn-toggle-add-block-button`)).toHaveText(
     'Empty toggle. Click or drop blocks inside.'
   )
-})
-
-test('children line up under the text of their list item', async ({ nb }) => {
-  const page = await openFile(nb, 'Indent', '- parent\n  - child\n- [ ] task\n  - under task\n')
-  const lefts = await page.evaluate(() => {
-    const textLeft = (text: string): number => {
-      const el = [...document.querySelectorAll('.bn-editor .bn-inline-content')].find(
-        (e) => e.textContent === text
-      )!
-      return Math.round(el.getBoundingClientRect().left)
-    }
-    const markerLeft = (text: string): number => {
-      const el = [...document.querySelectorAll('.bn-editor .bn-block-content')].find(
-        (e) => e.textContent === text
-      )!
-      return Math.round(el.getBoundingClientRect().left)
-    }
-    return {
-      parentText: textLeft('parent'),
-      childBlock: markerLeft('child'),
-      taskText: textLeft('task'),
-      underTaskBlock: markerLeft('under task')
-    }
-  })
-  // Notion starts a child where the parent's marker column ends: 26px, 6px before the text.
-  expect(lefts.childBlock).toBe(lefts.parentText - 6)
-  expect(lefts.underTaskBlock).toBe(lefts.taskText - 6)
 })

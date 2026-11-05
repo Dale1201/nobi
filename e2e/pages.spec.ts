@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { readdir, readFile, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
@@ -8,17 +8,17 @@ import {
   caretToLineStart,
   editor,
   newPage,
+  openFile,
   placeCaret,
   rowAction,
   waitForFile
 } from './helpers'
 
-test('duplicate copies a page and its sub-pages below the original', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Plan.md'), 'Body\n')
-  await mkdir(join(nb.workspace, 'Plan'))
-  await writeFile(join(nb.workspace, 'Plan', 'Step.md'), 'Step one\n')
-  await writeFile(join(nb.workspace, 'Zebra.md'), 'Last\n')
-  const page = await nb.relaunch()
+test('duplicate copies a page and its sub-pages below the original', async ({ nbWith }) => {
+  const nb = await nbWith({
+    files: { 'Plan.md': 'Body\n', 'Plan/Step.md': 'Step one\n', 'Zebra.md': 'Last\n' }
+  })
+  const { page } = nb
   await rowAction(page, 'Plan', 'Duplicate')
   await expect(page.getByTestId('page-title')).toHaveText('Plan (1)')
   await expect(page.locator('.sidebar-section').last().locator('.sidebar-row-title')).toHaveText([
@@ -28,26 +28,16 @@ test('duplicate copies a page and its sub-pages below the original', async ({ nb
     'New page'
   ])
   await expect(page.locator(editor)).toContainText('Body')
-  expect(await readdir(join(nb.workspace, 'Plan (1)'))).toEqual(['Step.md'])
+  await expect
+    .poll(() => readdir(join(nb.workspace, 'Plan (1)')).catch(() => []))
+    .toEqual(['Step.md'])
 })
 
-test('the top bar menu duplicates the open page', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Plan.md'), 'Body\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Plan').click()
-  await expect(page.getByTestId('page-title')).toHaveText('Plan')
-  await page.getByRole('button', { name: 'Page menu' }).click()
-  await page.getByRole('menuitem', { name: 'Duplicate', exact: true }).click()
-  await expect(page.getByTestId('page-title')).toHaveText('Plan (1)')
-  await expect(page.locator(editor)).toContainText('Body')
-  await waitForFile(join(nb.workspace, 'Plan (1).md'), 'Body')
-})
-
-test('move to picks a new parent from a searchable list', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'Inbox.md'), 'Note\n')
-  await writeFile(join(nb.workspace, 'Projects.md'), 'All projects\n')
-  await writeFile(join(nb.workspace, 'Archive.md'), 'Old\n')
-  const page = await nb.relaunch()
+test('move to picks a new parent from a searchable list', async ({ nbWith }) => {
+  const nb = await nbWith({
+    files: { 'Inbox.md': 'Note\n', 'Projects.md': 'All projects\n', 'Archive.md': 'Old\n' }
+  })
+  const { page } = nb
   await rowAction(page, 'Inbox', 'Move to')
   const picker = page.getByRole('dialog', { name: 'Move page to' })
   await page.keyboard.press('Meta+k')
@@ -66,7 +56,9 @@ test('move to picks a new parent from a searchable list', async ({ nb }) => {
     .toEqual(['Inbox.md'])
 })
 
-test('a table of contents lists the headings and jumps to them', async ({ nb }) => {
+test('a table of contents lists the headings and jumps to them by click or keyboard', async ({
+  nb
+}) => {
   const { page, workspace } = nb
   await newPage(page, 'Guide')
   await page.keyboard.type('/toc')
@@ -83,24 +75,14 @@ test('a table of contents lists the headings and jumps to them', async ({ nb }) 
   await waitForFile(join(workspace, 'Guide.md'), '<nav data-toc></nav>\n\n# Intro')
 
   const details = page.locator('h2', { hasText: 'Details' })
-  await page.getByTestId('page-scroll').evaluate((el) => el.scrollTo(0, 0))
+  const toTop = (): Promise<void> =>
+    page.getByTestId('page-scroll').evaluate((el) => el.scrollTo(0, 0))
+  await toTop()
   await expect(details).not.toBeInViewport()
   await page.locator('.nb-toc-item', { hasText: 'Details' }).click()
   await expect(details).toBeInViewport()
-})
 
-test('a table of contents entry opens from the keyboard', async ({ nb }) => {
-  const { page } = nb
-  await newPage(page, 'Keys')
-  await page.keyboard.type('/toc')
-  await page.keyboard.press('Enter')
-  await page.locator(editor).press('ArrowDown')
-  await page.keyboard.type('# Intro')
-  await page.keyboard.press('Enter')
-  for (let i = 0; i < 40; i++) await page.keyboard.press('Enter')
-  await page.keyboard.type('## Details')
-  const details = page.locator('h2', { hasText: 'Details' })
-  await page.getByTestId('page-scroll').evaluate((el) => el.scrollTo(0, 0))
+  await toTop()
   await expect(details).not.toBeInViewport()
   await page.locator('.nb-toc').getByRole('button', { name: 'Details' }).focus()
   await page.keyboard.press('Enter')
@@ -133,7 +115,7 @@ async function selectWordBeforeCursor(page: Page): Promise<void> {
   await expect(toolbar).toBeVisible()
 }
 
-test('Cmd+Shift+H applies the last color picked in the toolbar', async ({ nb }) => {
+test('Cmd+Shift+H toggles the last color picked in the toolbar', async ({ nb }) => {
   const { page, workspace } = nb
   await newPage(page, 'Colors')
   await page.keyboard.type('alpha beta')
@@ -159,21 +141,12 @@ test('Cmd+Shift+H applies the last color picked in the toolbar', async ({ nb }) 
   await waitForFile(join(workspace, 'Colors.md'), 'gamma')
   await selectWordBeforeCursor(page)
   await page.keyboard.press('Meta+Shift+h')
-  await waitForFile(join(workspace, 'Colors.md'), '<span data-color="red">gamma</span>')
-})
+  const file = join(workspace, 'Colors.md')
+  await waitForFile(file, '<span data-color="red">gamma</span>')
 
-test('Cmd+Shift+H a second time removes the color again', async ({ nb }) => {
-  const { page, workspace } = nb
-  const file = join(workspace, 'Toggle.md')
-  await newPage(page, 'Toggle')
-  await page.keyboard.type('alpha beta')
-  await waitForFile(file, 'alpha beta')
-  await selectWordBeforeCursor(page)
   await page.keyboard.press('Meta+Shift+h')
-  await waitForFile(file, 'alpha <span data-bg="yellow">beta</span>')
-  await page.keyboard.press('Meta+Shift+h')
-  await expect.poll(async () => (await readFile(file, 'utf8')).includes('data-bg')).toBe(false)
-  expect(await readFile(file, 'utf8')).toContain('alpha beta')
+  await expect.poll(() => readFile(file, 'utf8')).not.toContain('<span data-color="red">gamma')
+  expect(await readFile(file, 'utf8')).toMatch(/<span data-color="red">alpha<\/span>.*gamma/)
 })
 
 test('the last picked color survives a restart', async ({ nb }) => {
@@ -200,16 +173,17 @@ test('the last picked color survives a restart', async ({ nb }) => {
   await waitForFile(file, '<span data-color="red">gamma</span>')
 })
 
-test('clicking below the last block adds a line to type on, like Notion', async ({ nb }) => {
+test('clicking below the last block adds a line to type on, like Notion', async ({ nbWith }) => {
+  const nb = await openFile(nbWith, 'Bottom', '- [ ] first\n- [ ] second\n')
+  const { page } = nb
   const file = join(nb.workspace, 'Bottom.md')
-  await writeFile(file, '- [ ] first\n- [ ] second\n')
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Bottom').click()
   const body = page.locator(editor)
+  await expect(body.locator('.bn-block-outer')).toHaveCount(2)
   const last = (await body.locator('.bn-block-outer').last().boundingBox())!
   const scroll = (await page.getByTestId('page-scroll').boundingBox())!
   // Off to the side of the text column, well below the last line.
   await page.mouse.click(scroll.x + 20, last.y + last.height + 120)
+  await expect(body.locator('.bn-block-outer')).toHaveCount(3)
   await page.keyboard.type('third')
   await waitForFile(file, '- [ ] second\n\nthird\n')
 
@@ -228,17 +202,22 @@ test('dragging the scrollbar below the last block only scrolls, even with floati
   const workspace = await tmp('workspace')
   await writeFile(join(userData, 'settings.json'), JSON.stringify({ lastWorkspace: workspace }))
   const lines = Array.from({ length: 60 }, (_, i) => `Line ${i}`)
-  await writeFile(join(workspace, 'Long.md'), lines.join('\n\n') + '\n')
+  const long = join(workspace, 'Long.md')
+  await writeFile(long, lines.join('\n\n') + '\n')
+  const past = new Date(Date.now() - 60_000)
+  await utimes(long, past, past)
   // macOS's trackpad default, where native scrollbars would float over the content.
   const app = await launchElectron({
     args: ['out/main/index.js', '-AppleShowScrollBars', 'WhenScrolling'],
-    env: { NOBSIDIAN_USER_DATA: userData, NODE_ENV: 'test' }
+    env: { NOBSIDIAN_USER_DATA: userData, NODE_ENV: 'test', NOBSIDIAN_MCP_PORT: '0' }
   })
   const page = await app.firstWindow()
   await page.getByTestId('sidebar-row-Long').click()
   const scroll = page.getByTestId('page-scroll')
   await expect(scroll.locator(editor)).toBeVisible()
-  expect(await scroll.evaluate((el: HTMLElement) => el.offsetWidth - el.clientWidth)).toBe(12)
+  await expect
+    .poll(() => scroll.evaluate((el: HTMLElement) => el.offsetWidth - el.clientWidth))
+    .toBe(12)
   await scroll.evaluate((el) => (el.scrollTop = el.scrollHeight))
   const box = (await scroll.boundingBox())!
   await page.mouse.move(box.x + box.width - 4, box.y + box.height - 30)

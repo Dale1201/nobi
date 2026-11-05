@@ -1,16 +1,24 @@
-import { writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { expect, test } from './fixtures'
-import { clickMenuItem, editor } from './helpers'
+import { menu, editor, newTab, openFile } from './helpers'
 
-test('links, inline code and dividers look like Notion’s', async ({ nb }) => {
-  await writeFile(
-    join(nb.workspace, 'Look.md'),
-    'A [link](https://example.com) and `code`.\n\n---\n'
+test('headings, links, inline code and dividers look like Notion’s', async ({ nbWith }) => {
+  const { page } = await openFile(
+    nbWith,
+    'Look',
+    '# One\n\n## Two\n\n### Three\n\nA [link](https://example.com) and `code`.\n\n---\n'
   )
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Look').click()
   const body = page.locator(editor)
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          [...document.querySelectorAll('.bn-editor [data-content-type="heading"]')].map(
+            (el) => getComputedStyle(el.querySelector('h1, h2, h3') ?? el).fontSize
+          )
+        ),
+      'Notion heading sizes, level 1 included'
+    )
+    .toEqual(['30px', '24px', '20px'])
   const text = await body
     .locator('p')
     .first()
@@ -22,20 +30,14 @@ test('links, inline code and dividers look like Notion’s', async ({ nb }) => {
   await expect(body.locator('hr')).toHaveCSS('border-top-color', 'rgba(55, 53, 47, 0.16)')
 })
 
-test('the tab bar is sized and coloured like Notion’s', async ({ nb }) => {
-  await writeFile(join(nb.workspace, 'One.md'), 'One.\n')
-  await writeFile(join(nb.workspace, 'Two.md'), 'Two.\n')
-  const page = await nb.relaunch()
+test('the tab bar is sized and coloured like Notion’s', async ({ nbWith }) => {
+  const nb = await nbWith({ files: { 'One.md': 'One.\n', 'Two.md': 'Two.\n' } })
+  const { page } = nb
   await nb.app.evaluate(({ nativeTheme }) => {
     nativeTheme.themeSource = 'light'
   })
   await page.getByTestId('sidebar-row-One').click()
-  await nb.app.evaluate(({ Menu }) =>
-    Menu.getApplicationMenu()
-      ?.items.flatMap((i) => i.submenu?.items ?? [])
-      .find((i) => i.label === 'New Tab')
-      ?.click()
-  )
+  await newTab(nb.app, page)
   await page.getByTestId('sidebar-row-Two').click()
   await page.getByTestId('tab-One').click()
   const bar = page.locator('.tab-bar')
@@ -48,31 +50,31 @@ test('the tab bar is sized and coloured like Notion’s', async ({ nb }) => {
   await expect(active.locator('.tab-title')).toHaveCSS('font-size', '13px')
   await expect(active.locator('.tab-title')).toHaveCSS('font-weight', '500')
   await expect(inactive.locator('.tab-title')).toHaveCSS('color', 'rgba(55, 53, 47, 0.65)')
-  expect((await inactive.boundingBox())!.width).toBe(200)
+  await expect.poll(async () => (await inactive.boundingBox())?.width).toBe(200)
   const inset = await page.evaluate(
     () =>
       (window as unknown as { api: { windowControls: { inset: number } } }).api.windowControls.inset
   )
   await expect(page.locator('.tab-bar-lead')).toHaveCSS('padding-left', `${inset}px`)
-  expect((await page.locator('.tab-bar-lead').boundingBox())!.width).toBe(
-    (await page.getByTestId('sidebar').boundingBox())!.width
-  )
+  await expect
+    .poll(async () => {
+      const lead = await page.locator('.tab-bar-lead').boundingBox()
+      const sidebar = await page.getByTestId('sidebar').boundingBox()
+      return lead && sidebar && lead.width === sidebar.width
+    }, 'the tab bar lead is as wide as the sidebar')
+    .toBe(true)
 
-  await nb.app.evaluate(({ Menu }) =>
-    Menu.getApplicationMenu()
-      ?.items.flatMap((i) => i.submenu?.items ?? [])
-      .find((i) => i.label === 'Toggle Dark Mode')
-      ?.click()
-  )
+  await menu(nb.app, 'Toggle Dark Mode')
   await expect(active).toHaveCSS('background-color', 'rgb(25, 25, 25)')
   await expect(inactive).toHaveCSS('background-color', 'rgb(32, 32, 32)')
 })
 
-test('scrollbars are thin rounded thumbs with no track, like Notion’s', async ({ nb }) => {
-  for (let i = 0; i < 40; i++) await writeFile(join(nb.workspace, `Page ${i}.md`), 'Text.\n')
-  await writeFile(join(nb.workspace, 'Long.md'), 'Line.\n\n'.repeat(200))
-  const page = await nb.relaunch()
-  await page.getByTestId('sidebar-row-Long').click()
+test('scrollbars are thin rounded thumbs with no track, like Notion’s', async ({ nbWith }) => {
+  const files = Object.fromEntries(
+    Array.from({ length: 40 }, (_, i) => [`Page ${i}.md`, 'Text.\n'])
+  )
+  const nb = await openFile(nbWith, 'Long', 'Line.\n\n'.repeat(200), { files })
+  const { page } = nb
   await expect(page.locator(editor)).toContainText('Line.')
 
   const scrollers = { sidebar: page.locator('.sidebar-scroll'), page: page.locator('.page-scroll') }
@@ -101,7 +103,9 @@ test('scrollbars are thin rounded thumbs with no track, like Notion’s', async 
     }).toPass({ timeout: 5000 })
 
   for (const scroller of Object.values(scrollers)) {
-    expect(await scroller.evaluate((el: HTMLElement) => el.offsetWidth - el.clientWidth)).toBe(12)
+    await expect
+      .poll(() => scroller.evaluate((el: HTMLElement) => el.offsetWidth - el.clientWidth))
+      .toBe(12)
   }
 
   await nb.app.evaluate(({ nativeTheme }) => {
@@ -113,7 +117,7 @@ test('scrollbars are thin rounded thumbs with no track, like Notion’s', async 
   await expectColor('page', 6, [211, 211, 209])
   await expectColor('page', 1, [255, 255, 255])
 
-  await clickMenuItem(nb.app, 'Toggle Dark Mode')
+  await menu(nb.app, 'Toggle Dark Mode')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await expectColor('sidebar', 6, [81, 81, 81])
   await expectColor('sidebar', 1, [32, 32, 32])

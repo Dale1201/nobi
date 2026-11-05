@@ -3,12 +3,12 @@ import { join } from 'node:path'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import type { ElectronApplication, Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { clickMenuItem, editor, newPage, waitForFile } from './helpers'
+import { clickInEditor, menu, editor, newPage, pressInEditor, waitForFile } from './helpers'
 
 // The menu command is ignored until the workspace has loaded, which the sidebar shows.
 async function openConnections(page: Page, app: ElectronApplication): Promise<Locator> {
   await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible()
-  await clickMenuItem(app, 'Settings…')
+  await menu(app, 'Settings…')
   const dialog = page.getByRole('dialog', { name: 'Settings' })
   await dialog.getByRole('button', { name: 'Connections' }).click()
   await expect(dialog.getByRole('heading', { name: 'Connections' })).toBeVisible()
@@ -87,13 +87,13 @@ test('Claude Code connects from Settings, and the open page shows what it writes
   )
 
   // Typing Claude's write lands on is kept on screen, not overwritten either way.
-  await page.locator(editor).getByText('Rewritten by Claude').click()
-  await page.keyboard.press('End')
+  await clickInEditor(page, 'Rewritten by Claude')
+  await pressInEditor(page, 'End')
   await page.keyboard.type(' and mine')
   await call(client, 'append_to_page', { id: plans, markdown: 'From Claude' })
   await expect(page.getByRole('status')).toContainText('This page was changed outside Nobsidian.')
   await expect(page.locator(editor)).toContainText('Rewritten by Claude and mine')
-  expect(await readFile(file, 'utf8')).toContain('From Claude')
+  await waitForFile(file, 'From Claude')
   await client.close()
 })
 
@@ -103,8 +103,9 @@ test('the connection survives a relaunch, and resetting the token or turning it 
   let dialog = await openConnections(nb.page, nb.app)
   await dialog.getByRole('switch', { name: 'Let Claude Code use your notes' }).click()
   const first = await shownCommand(dialog)
-  const settings = JSON.parse(await readFile(join(nb.userData, 'settings.json'), 'utf8'))
-  expect(settings.mcp).toEqual({ enabled: true, port: Number(new URL(first.url).port) })
+  await expect
+    .poll(async () => JSON.parse(await readFile(join(nb.userData, 'settings.json'), 'utf8')).mcp)
+    .toEqual({ enabled: true, port: Number(new URL(first.url).port) })
 
   const page = await nb.relaunch()
   dialog = await openConnections(page, nb.app)

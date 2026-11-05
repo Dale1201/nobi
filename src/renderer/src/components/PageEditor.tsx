@@ -10,6 +10,7 @@ import {
 import type { Block } from '@shared/core/blocks'
 import { pageLinkHref } from '@shared/core/links'
 import { openHref } from '../lib/navigation'
+import { SAVE_DELAY_MS } from '@shared/editor'
 import type { PageDoc } from '@shared/types'
 import { codeBlockOptions } from '@blocknote/code-block'
 import { Editor, type EditorContent } from '../editor/Editor'
@@ -21,7 +22,6 @@ import { prepareNotionPaste } from '../editor/notionPaste'
 import { emitPageEvent, onPageEvent, saveCount } from '../lib/pageEvents'
 import { registerFlusher, useApp } from '../store'
 
-const SAVE_DELAY_MS = 500
 const editorLanguage = createLanguageResolver(codeBlockOptions.supportedLanguages)
 const api = window.api
 
