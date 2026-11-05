@@ -406,6 +406,14 @@
   font-size: 1.5em;
   line-height: 1;
 }
+/* With a full-height marker, Chrome puts a click right of the text at its start (BlockNote #1588).
+   An empty item keeps its width so the placeholder after it stays beside the marker. */
+.bn-root
+  .bn-block-content:is([data-content-type='bulletListItem'], [data-content-type='numberedListItem'])
+  > .bn-inline-content:not(:has(> .ProseMirror-trailingBreak:only-child)) {
+  flex: 1;
+  min-width: 0;
+}
 
 .bn-root .bn-block-content[data-content-type='checkListItem'] > div:has(> input) {
   flex: none;
