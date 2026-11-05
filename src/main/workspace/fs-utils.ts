@@ -1,8 +1,8 @@
-import { open, rename, unlink, stat, readdir, rmdir } from 'node:fs/promises'
+import { link, open, rename, unlink, stat, readdir, rmdir, writeFile } from 'node:fs/promises'
 import { randomBytes } from 'node:crypto'
 import { basename, dirname, join } from 'node:path'
 
-export async function writeFileAtomic(path: string, data: string | Uint8Array): Promise<void> {
+async function writeTemp(path: string, data: string | Uint8Array): Promise<string> {
   const tmp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString('hex')}.tmp`)
   const fh = await open(tmp, 'w')
   try {
@@ -11,11 +11,39 @@ export async function writeFileAtomic(path: string, data: string | Uint8Array): 
   } finally {
     await fh.close()
   }
+  return tmp
+}
+
+export async function writeFileAtomic(path: string, data: string | Uint8Array): Promise<void> {
+  const tmp = await writeTemp(path, data)
   try {
     await rename(tmp, path)
   } catch (err) {
     await unlink(tmp).catch(() => {})
     throw err
+  }
+}
+
+/** Like `writeFileAtomic`, but false instead of replacing a file that is already there. */
+export async function createFileAtomic(path: string, data: string | Uint8Array): Promise<boolean> {
+  const tmp = await writeTemp(path, data)
+  try {
+    await link(tmp, path)
+    return true
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'EEXIST') return false
+    // Volumes without hard links (exFAT, some network shares) fall back to exclusive create.
+    if (!['EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS'].includes(code ?? '')) throw err
+    return writeFile(path, data, { flag: 'wx' }).then(
+      () => true,
+      (e: NodeJS.ErrnoException) => {
+        if (e.code === 'EEXIST') return false
+        throw e
+      }
+    )
+  } finally {
+    await unlink(tmp).catch(() => {})
   }
 }
 

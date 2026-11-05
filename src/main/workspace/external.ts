@@ -1,4 +1,4 @@
-import { readFile, readdir, unlink, writeFile } from 'node:fs/promises'
+import { readFile, readdir, unlink } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { insertId, splitFrontmatter, metaFromData } from '../../shared/core/page'
@@ -11,7 +11,7 @@ import {
   type PageRecord,
   type WorkspaceCore
 } from './core'
-import { writeFileAtomic } from './fs-utils'
+import { createFileAtomic, writeFileAtomic } from './fs-utils'
 import { SNAPSHOT_INTERVAL_MS, type PageHistory } from './page-history'
 import { APP_DIR, STATE_FILE, loadState } from './state'
 
@@ -173,16 +173,9 @@ export class ExternalChanges {
       const owned = [...files].some((f) => f.slice(0, -3).toLowerCase() === name.toLowerCase())
       const pageFile = joinPath(dir, `${name}.md`)
       if (owned) continue
-      // Born with its id and never rewritten, so a page file another program writes now is kept.
+      // Born whole with its id, so a page file another program writes meanwhile is never mixed into it.
       const id = randomUUID()
-      const made = await writeFile(core.abs(pageFile), insertId('', id), { flag: 'wx' }).then(
-        () => true,
-        (err: NodeJS.ErrnoException) => {
-          if (err.code === 'EEXIST') return false
-          throw err
-        }
-      )
-      if (made) core.stubs.set(pageFile, id)
+      if (await createFileAtomic(core.abs(pageFile), insertId('', id))) core.stubs.set(pageFile, id)
       files.add(`${name}.md`)
     }
     for (const file of [...files]) {
