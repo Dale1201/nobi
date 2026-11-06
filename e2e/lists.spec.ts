@@ -67,6 +67,41 @@ test('list markers change with depth, keep their start and sit in a 24px column 
   await expect.poll(() => childOffset(page, 'b1', 'b2'), 'a child lines up under the text').toBe(6)
 })
 
+test('a click right of a list item puts the caret at the end of its text', async ({ nbWith }) => {
+  const { page } = await openFile(nbWith, 'Lists', '- bullet text\n\n1. numbered text\n\n- \n')
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const empty = [...document.querySelectorAll('.bn-editor .bn-inline-content')].at(-1)!
+          return empty.getBoundingClientRect().width
+        }),
+      'an empty item keeps its placeholder beside the marker'
+    )
+    .toBeLessThan(10)
+  for (const text of ['bullet text', 'numbered text']) {
+    const row = page.locator(`${editor} .bn-block-content`, { hasText: text })
+    const { width, height } = (await row.boundingBox())!
+    await row.click({ position: { x: width - 20, y: height / 2 } })
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const { $head } = (
+            document.querySelector('.ProseMirror') as unknown as {
+              editor: {
+                state: {
+                  selection: { $head: { parentOffset: number; parent: { textContent: string } } }
+                }
+              }
+            }
+          ).editor.state.selection
+          return [$head.parent.textContent, $head.parentOffset]
+        })
+      )
+      .toEqual([text, text.length])
+  }
+})
+
 test('to-dos and toggles are drawn like Notion', async ({ nbWith }) => {
   const { page } = await openFile(
     nbWith,
