@@ -1,5 +1,5 @@
-appId: io.github.dale1201.nobsidian
-productName: Nobsidian
+appId: io.github.dale1201.nobi
+productName: Nobi
 directories:
   buildResources: build
 files:

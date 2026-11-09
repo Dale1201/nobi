@@ -4,7 +4,7 @@ import type { AppEditor, AppPartialBlock } from './schema'
 type AppInlineContent = Parameters<AppEditor['insertInlineContent']>[0]
 
 /** Window event asking the open editor to attach dropped files at the cursor. */
-export const ATTACH_FILES_EVENT = 'nobsidian:attach-files'
+export const ATTACH_FILES_EVENT = 'nobi:attach-files'
 
 /** Puts blocks after the cursor's block, or in its place when that block is an empty paragraph. */
 export function insertAtCursor(editor: AppEditor, blocks: Block[]): void {

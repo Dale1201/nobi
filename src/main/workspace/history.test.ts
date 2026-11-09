@@ -12,7 +12,7 @@ let root: string
 let clock: Date
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-history-ws-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-history-ws-'))
   clock = new Date('2026-10-21T10:00:00.000Z')
 })
 afterEach(async () => {
@@ -40,7 +40,7 @@ const link = (id: string): Block => ({
 const locked: string[] = []
 /** Makes the history folder (and a page's history folder) unwritable, like a full or read-only disk. */
 async function lockHistory(id?: string): Promise<void> {
-  const dirs = [join(root, '.nobsidian', 'history'), ...(id ? [historyDir(id)] : [])]
+  const dirs = [join(root, '.nobi', 'history'), ...(id ? [historyDir(id)] : [])]
   for (const dir of dirs) await mkdir(dir, { recursive: true })
   for (const dir of dirs) await chmod(dir, 0o555)
   locked.push(...dirs)
@@ -48,7 +48,7 @@ async function lockHistory(id?: string): Promise<void> {
 async function unlock(): Promise<void> {
   for (const dir of locked.splice(0)) await chmod(dir, 0o755)
 }
-const historyDir = (id: string): string => join(root, '.nobsidian', 'history', id)
+const historyDir = (id: string): string => join(root, '.nobi', 'history', id)
 
 /** Snapshot files of a page, newest first, as stored. */
 async function snapshots(id: string): Promise<string[]> {

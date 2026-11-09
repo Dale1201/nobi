@@ -405,8 +405,7 @@ class RecordMapper {
     const notionId = id.replace(/-/g, '')
     const href = this.ctx.link(`https://www.notion.so/${notionId}`, id)
     const name = title || this.names.pages.get(notionId) || 'Untitled'
-    if (href.startsWith('nobsidian://page/'))
-      return [{ type: 'pageLink', props: { href }, children: [] }]
+    if (pageIdFromHref(href)) return [{ type: 'pageLink', props: { href }, children: [] }]
     return [this.linkParagraph(href, name)]
   }
 

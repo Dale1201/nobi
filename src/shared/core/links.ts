@@ -1,13 +1,17 @@
 import type { Block, Inline } from './blocks'
 
-export const PAGE_LINK_PREFIX = 'nobsidian://page/'
+export const PAGE_LINK_PREFIX = 'nobi://page/'
+// The app was called Nobsidian; its page links may still be in notes and in old MCP clients.
+const LEGACY_PAGE_LINK_PREFIX = 'nobsidian://page/'
 
 export function pageLinkHref(id: string): string {
   return PAGE_LINK_PREFIX + id
 }
 
 export function pageIdFromHref(href: string): string | null {
-  return href.startsWith(PAGE_LINK_PREFIX) ? href.slice(PAGE_LINK_PREFIX.length) : null
+  if (href.startsWith(PAGE_LINK_PREFIX)) return href.slice(PAGE_LINK_PREFIX.length)
+  if (href.startsWith(LEGACY_PAGE_LINK_PREFIX)) return href.slice(LEGACY_PAGE_LINK_PREFIX.length)
+  return null
 }
 
 /** Returns copies of `blocks` with every link target passed through `map`. */

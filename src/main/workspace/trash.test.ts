@@ -10,7 +10,7 @@ let root: string
 let clock: Date
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-trash-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-trash-'))
   clock = new Date('2026-10-21T10:00:00.000Z')
 })
 afterEach(async () => {
@@ -237,11 +237,11 @@ describe('Trash', () => {
     await ws.trashPage(restoredId)
     const [again] = await ws.listTrash()
     await ws.deleteTrash(again.entry)
-    expect(await readdir(join(root, '.nobsidian', 'history', a))).not.toEqual([])
+    expect(await readdir(join(root, '.nobi', 'history', a))).not.toEqual([])
   })
 
   it('cleans up an entry whose page never arrived', async () => {
-    const dir = join(root, '.nobsidian', 'trash', '2026-10-21T09-00-00-000Z-x')
+    const dir = join(root, '.nobi', 'trash', '2026-10-21T09-00-00-000Z-x')
     await mkdir(dir, { recursive: true })
     await writeFile(
       join(dir, 'meta.json'),
@@ -255,7 +255,7 @@ describe('Trash', () => {
     )
     const ws = await open()
     expect(await ws.listTrash()).toEqual([])
-    expect(await readdir(join(root, '.nobsidian', 'trash'))).toEqual([])
+    expect(await readdir(join(root, '.nobi', 'trash'))).toEqual([])
   })
 
   it('keeps an entry whose page file is gone but whose sub-pages are still there', async () => {
@@ -265,7 +265,7 @@ describe('Trash', () => {
     await ws.writePage(child, [text('Child content')])
     await ws.trashPage(a)
     const [item] = await ws.listTrash()
-    await unlink(join(root, '.nobsidian', 'trash', item.entry, 'A.md'))
+    await unlink(join(root, '.nobi', 'trash', item.entry, 'A.md'))
     expect((await ws.listTrash()).map((i) => [i.title, i.pageCount])).toEqual([['A', 2]])
     await ws.restoreTrash(item.entry)
     const restored = ws.tree().find((n) => n.title === 'A')!
@@ -280,13 +280,13 @@ describe('Trash', () => {
     await ws.writePage(a, [text('one')])
     await ws.writePage(child, [text('two')])
     await ws.checkpoint()
-    expect(await readdir(join(root, '.nobsidian', 'history'))).toHaveLength(2)
+    expect(await readdir(join(root, '.nobi', 'history'))).toHaveLength(2)
     await ws.trashPage(a)
     const [item] = await ws.listTrash()
     await ws.deleteTrash(item.entry)
     expect(await ws.listTrash()).toEqual([])
-    expect(await readdir(join(root, '.nobsidian', 'history'))).toEqual([])
-    expect(await readdir(join(root, '.nobsidian', 'trash'))).toEqual([])
+    expect(await readdir(join(root, '.nobi', 'history'))).toEqual([])
+    expect(await readdir(join(root, '.nobi', 'trash'))).toEqual([])
   })
 
   it('purges entries older than 30 days', async () => {
@@ -300,8 +300,8 @@ describe('Trash', () => {
   })
 
   it('skips trash entries it cannot read and refuses unsafe entry names', async () => {
-    await mkdir(join(root, '.nobsidian', 'trash', 'broken'), { recursive: true })
-    await writeFile(join(root, '.nobsidian', 'trash', 'broken', 'meta.json'), '{')
+    await mkdir(join(root, '.nobi', 'trash', 'broken'), { recursive: true })
+    await writeFile(join(root, '.nobi', 'trash', 'broken', 'meta.json'), '{')
     const ws = await open()
     expect(await ws.listTrash()).toEqual([])
     await expect(ws.restoreTrash('../../x')).rejects.toThrow('Unknown trash item')

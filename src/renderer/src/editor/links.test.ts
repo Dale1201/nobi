@@ -7,7 +7,7 @@ describe('normalizeLinkInput', () => {
     ['  example.com  ', 'https://example.com'],
     ['sub.example.co.uk/path?q=1', 'https://sub.example.co.uk/path?q=1'],
     ['https://example.com', 'https://example.com'],
-    ['nobsidian://page/123', 'nobsidian://page/123'],
+    ['nobi://page/123', 'nobi://page/123'],
     ['/attachments/a%20b.png', '/attachments/a%20b.png'],
     ['../Other.md', '../Other.md'],
     ['#heading', '#heading'],
@@ -23,14 +23,7 @@ describe('normalizeLinkInput', () => {
 
 describe('isValidLink', () => {
   it('allows app, local and web links', () => {
-    for (const ok of [
-      'nobsidian://page/1',
-      '/a.png',
-      '../b.md',
-      '#x',
-      'https://a.b',
-      'mailto:a@b.c'
-    ]) {
+    for (const ok of ['nobi://page/1', '/a.png', '../b.md', '#x', 'https://a.b', 'mailto:a@b.c']) {
       expect(isValidLink(ok)).toBe(true)
     }
   })

@@ -31,7 +31,7 @@ describe('paths', () => {
   it('detects external hrefs', () => {
     expect(isExternalHref('https://x.dev')).toBe(true)
     expect(isExternalHref('mailto:a@b.c')).toBe(true)
-    expect(isExternalHref('nobsidian://page/1')).toBe(true)
+    expect(isExternalHref('nobi://page/1')).toBe(true)
     expect(isExternalHref('#top')).toBe(true)
     expect(isExternalHref('Other.md')).toBe(false)
   })

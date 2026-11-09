@@ -13,7 +13,7 @@ function context(pages: Record<string, string> = {}): MapContext & { issues: str
     issues,
     link: (href, pageId) => {
       const id = pageId?.replace(/-/g, '')
-      return id && pages[id] ? `nobsidian://page/${pages[id]}` : href
+      return id && pages[id] ? `nobi://page/${pages[id]}` : href
     },
     file: (src) => src,
     issue: (kind, detail) => issues.push(`${kind}: ${detail}`)
@@ -85,7 +85,7 @@ describe('mapNotionPaste', () => {
     const ctx = context({ '11111111222233334444555555555555': 'page-1' })
     expect(blocksToMarkdown(mapNotionPaste({ records: json, html }, ctx))).toBe(
       '**bold** <span data-color="red">red</span> <span data-bg="green">green</span> ' +
-        '[Plans](nobsidian://page/page-1 "mention") @March 14, 2026 $x^2$\n'
+        '[Plans](nobi://page/page-1 "mention") @March 14, 2026 $x^2$\n'
     )
   })
 

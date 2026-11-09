@@ -1,10 +1,10 @@
-const ALLOWED_SCHEME = /^(?:https?|mailto|tel|nobsidian):/i
+const ALLOWED_SCHEME = /^(?:https?|mailto|tel|nobi):/i
 const ANY_SCHEME = /^[a-z][a-z0-9+.-]*:/i
 const LOCAL_PREFIX = /^(?:\/|\.\/|\.\.\/|#)/
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const BARE_DOMAIN = /^[\w-]+(\.[\w-]+)+(:\d+)?(\/\S*)?$/
 
-// Replaces BlockNote's default (not exported from 0.56), which rejects nobsidian://.
+// Replaces BlockNote's default (not exported from 0.56), which rejects nobi://.
 // Scheme-less hrefs (/attachments/..., ../Other.md, #x) are always allowed.
 export function isValidLink(href: string): boolean {
   // Browsers ignore whitespace and control characters inside schemes ("java\tscript:").

@@ -13,12 +13,12 @@ export interface NotesAccess {
   treeChanged: () => void
 }
 
-const INSTRUCTIONS = `Nobsidian is a Notion-like note app; each page is a Markdown file in the user's notes folder.
+const INSTRUCTIONS = `Nobi is a Notion-like note app; each page is a Markdown file in the user's notes folder.
 Pages are identified by id: find them with search_pages or list_pages.
 A page's title is not part of its content, so don't start content with the title as a heading.
 
 Content is Markdown (CommonMark, GFM tables and task lists, $math$) with these extensions:
-- Link to another page: [Title](nobsidian://page/<id>). Give the link the title "mention" for an @ mention: [Title](nobsidian://page/<id> "mention"). [Title](nobsidian://page/<id> "page") on a line of its own is a page block.
+- Link to another page: [Title](nobi://page/<id>). Give the link the title "mention" for an @ mention: [Title](nobi://page/<id> "mention"). [Title](nobi://page/<id> "page") on a line of its own is a page block.
 - Callout: a quote whose first line is "> [!callout] 💡", then "> " lines.
 - Toggle: <details><summary>Title</summary>, a blank line, the hidden blocks, </details>.
 - Colors: <span data-color="red">text</span>, <span data-bg="yellow">text</span>; underline: <u>text</u>.
@@ -72,14 +72,14 @@ function breadcrumb(at: Map<string, Place>, id: string): string {
 
 /** An MCP server whose tools read and change the notes open in the app. */
 export function createNotesServer(access: NotesAccess, version: string): McpServer {
-  const server = new McpServer({ name: 'nobsidian', version }, { instructions: INSTRUCTIONS })
+  const server = new McpServer({ name: 'nobi', version }, { instructions: INSTRUCTIONS })
 
   /** Runs a tool against the open workspace, turning expected failures into tool errors. */
   const withNotes =
     <A>(run: (ws: Workspace, args: A, at: Map<string, Place>) => Promise<CallToolResult>) =>
     async (args: A): Promise<CallToolResult> => {
       const ws = access.workspace()
-      if (!ws) return fail('No notes folder is open in Nobsidian.')
+      if (!ws) return fail('No notes folder is open in Nobi.')
       const at = places(ws.tree())
       for (const key of ['id', 'parentId'] as const) {
         const id = (args as Record<string, unknown>)[key]

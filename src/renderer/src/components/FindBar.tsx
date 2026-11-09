@@ -15,7 +15,7 @@ import type { AppEditor } from '../editor/schema'
 import { ArrowUpIcon, ChevronDownIcon, CloseIcon } from './icons'
 
 /** Find commands from the menu, for the active tab's page. */
-export const FIND_EVENT = 'nobsidian:find'
+export const FIND_EVENT = 'nobi:find'
 export type FindCommand = Extract<MenuCommand, `find${string}`>
 
 /** Notion's find and replace bar, at the top right of the page. */

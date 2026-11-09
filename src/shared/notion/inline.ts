@@ -5,7 +5,7 @@ import { colorFromClasses, notionColor } from './colors'
 import { attr, classes, hasClass, isElement, textOf } from './hast'
 import type { MapContext } from './types'
 
-/** Rich text in Notion's export HTML, as Nobsidian inline content. */
+/** Rich text in Notion's export HTML, as Nobi inline content. */
 export function mapInline(nodes: ElementContent[], ctx: MapContext): Inline[] {
   const out: Inline[] = []
   walk(nodes, {}, out, ctx)

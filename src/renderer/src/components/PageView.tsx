@@ -167,7 +167,7 @@ export function PageView({
       {ready && conflict && (
         <Banner
           tone="warning"
-          message="This page was changed outside Nobsidian."
+          message="This page was changed outside Nobi."
           actions={[
             {
               label: 'Reload',

@@ -1,4 +1,4 @@
-// Plain-JSON mirror of the BlockNote document shape used by Nobsidian's schema.
+// Plain-JSON mirror of the BlockNote document shape used by Nobi's schema.
 // Kept free of runtime imports so main, renderer and tests can share it.
 
 export const COLOR_NAMES = [

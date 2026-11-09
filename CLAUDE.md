@@ -1,4 +1,4 @@
-# Nobsidian
+# Nobi
 
 A Notion-like note app for macOS: Electron, React and BlockNote, with each page a Markdown file in the user's folder.
 Notion is the yardstick for look and behaviour, and the Markdown files are the source of truth.
@@ -19,7 +19,7 @@ Notion is the yardstick for look and behaviour, and the Markdown files are the s
 ## End-to-end tests
 
 - They run the app in `out/`, so run `pnpm exec electron-vite build` after any change under `src/` (`pnpm test:e2e` builds for you).
-- Test windows stay hidden; set `NOBSIDIAN_E2E_SHOW=1` to see them.
+- Test windows stay hidden; set `NOBI_E2E_SHOW=1` to see them.
 - The `nb` fixture gives each test a fresh, empty workspace.
 - A test that needs pages on disk starts with `nbWith({ files, aiKey })` instead, which writes them before the first launch.
   Don't write files and then `nb.relaunch()`: that launches twice, and a file changed under a second before a scan joins the sidebar a second later.

@@ -16,13 +16,13 @@ import {
 
 /** Sets the mode of the history folder and every page's folder in it. */
 async function chmodHistory(workspace: string, mode: number): Promise<void> {
-  const base = join(workspace, '.nobsidian', 'history')
+  const base = join(workspace, '.nobi', 'history')
   for (const name of await readdir(base)) await chmod(join(base, name), mode)
   await chmod(base, mode)
 }
 
 async function historyTexts(workspace: string, id: string): Promise<string[]> {
-  const dir = join(workspace, '.nobsidian', 'history', id)
+  const dir = join(workspace, '.nobi', 'history', id)
   const names = (await readdir(dir).catch(() => [])).filter((v) => v.endsWith('.md'))
   return Promise.all(names.map((v) => readFile(join(dir, v), 'utf8')))
 }
@@ -40,7 +40,7 @@ async function conflicted(
   const head = await frontmatter(file)
   await page.keyboard.type(' plus mine')
   await writeFile(file, `${head}\nTheirs\n`)
-  await expect(page.getByRole('status')).toContainText('This page was changed outside Nobsidian.')
+  await expect(page.getByRole('status')).toContainText('This page was changed outside Nobi.')
   // The app's own text it replaced goes to history first; wait for it before breaking history.
   const id = /id: (\S+)/.exec(head)![1]
   await expect.poll(async () => (await historyTexts(workspace, id)).length).toBe(1)
@@ -176,7 +176,7 @@ test('leaving a page whose edits cannot be kept brings it back with the edits', 
     await page.getByTestId('sidebar-row-Other').click()
     await expect(page.getByRole('alert')).toContainText("Couldn't save the page")
     await expect(pane.getByTestId('page-title')).toHaveText('Shared')
-    await expect(banner).toContainText('This page was changed outside Nobsidian.')
+    await expect(banner).toContainText('This page was changed outside Nobi.')
     await expect(pane.locator(editor)).toHaveText('Base plus mine')
   } finally {
     await chmodHistory(workspace, 0o755)

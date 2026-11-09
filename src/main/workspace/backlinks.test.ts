@@ -9,7 +9,7 @@ import type { Block, Inline } from '../../shared/core/blocks'
 let root: string
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-backlinks-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-backlinks-'))
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })

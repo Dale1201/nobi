@@ -28,6 +28,7 @@ import { startImportWorker } from './import/start-worker'
 import { send } from './ipc'
 import { buildMenu } from './menu'
 import { SettingsStore } from './settings'
+import { migrateUserData } from './userData'
 import { safeStorageCodec, testCodec } from './ai/codecs'
 import { registerAiHandlers } from './ai/handlers'
 import { KeyStore } from './ai/keyStore'
@@ -39,10 +40,11 @@ import { registerMcpHandlers } from './mcp/handlers'
 import { McpService } from './mcp/service'
 import { windowControls } from '../shared/window'
 
-if (process.env.NOBSIDIAN_USER_DATA) app.setPath('userData', process.env.NOBSIDIAN_USER_DATA)
+if (process.env.NOBI_USER_DATA) app.setPath('userData', process.env.NOBI_USER_DATA)
+else migrateUserData(app.getPath('appData'), app.getPath('userData'))
 
-// Test runs stay off screen and never take focus; NOBSIDIAN_E2E_SHOW=1 shows them for debugging.
-const hidden = process.env.NOBSIDIAN_E2E === '1' && process.env.NOBSIDIAN_E2E_SHOW !== '1'
+// Test runs stay off screen and never take focus; NOBI_E2E_SHOW=1 shows them for debugging.
+const hidden = process.env.NOBI_E2E === '1' && process.env.NOBI_E2E_SHOW !== '1'
 if (hidden && process.platform === 'darwin') app.setActivationPolicy('accessory')
 
 protocol.registerSchemesAsPrivileged([
@@ -89,7 +91,7 @@ const ctx: AppContext = {
 const ai = new AiService({
   keys: new KeyStore(
     join(app.getPath('userData'), 'anthropic-key.json'),
-    process.env.NOBSIDIAN_E2E === '1' ? testCodec : safeStorageCodec
+    process.env.NOBI_E2E === '1' ? testCodec : safeStorageCodec
   ),
   usage: new UsageLedger(join(app.getPath('userData'), 'ai-usage.json')),
   model: () => {
@@ -101,9 +103,7 @@ const ai = new AiService({
 const mcp = new McpService({
   settings: ctx.settings,
   tokenFile: join(app.getPath('userData'), 'mcp-token'),
-  defaultPort: process.env.NOBSIDIAN_MCP_PORT
-    ? Number(process.env.NOBSIDIAN_MCP_PORT)
-    : DEFAULT_MCP_PORT,
+  defaultPort: process.env.NOBI_MCP_PORT ? Number(process.env.NOBI_MCP_PORT) : DEFAULT_MCP_PORT,
   access: { workspace: () => ctx.workspace, treeChanged: () => treeChanged(ctx) },
   version: app.getVersion()
 })
@@ -128,7 +128,7 @@ function createWindow(): void {
     minWidth: 720,
     minHeight: 480,
     show: false,
-    title: 'Nobsidian',
+    title: 'Nobi',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: controls.x, y: controls.y },
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#191919' : '#ffffff',

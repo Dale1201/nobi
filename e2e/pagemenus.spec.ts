@@ -108,7 +108,7 @@ test('Rename, Edit icon and Move to Trash on a page block act on the sub-page in
   await expect(page.locator(pageBlock)).toHaveCount(0)
   await expect(title(page)).toHaveText('Aztec')
   await waitForFile(join(nb.workspace, 'Aztec.md'), /---\n\nFirst idea\n$/)
-  await expect(page.getByText('This page was changed outside Nobsidian.')).toHaveCount(0)
+  await expect(page.getByText('This page was changed outside Nobi.')).toHaveCount(0)
 })
 
 test('a link to a page elsewhere keeps the block menu, with Open in new tab', async ({

@@ -64,7 +64,7 @@ async function readCapped(body: ReadableStream<Uint8Array> | null): Promise<Uint
 
 /** End-to-end tests serve "web" images from a local server instead of the internet. */
 function testOrigin(url: string): string {
-  const origin = process.env.NOBSIDIAN_E2E === '1' ? process.env.NOBSIDIAN_E2E_WEB : undefined
+  const origin = process.env.NOBI_E2E === '1' ? process.env.NOBI_E2E_WEB : undefined
   if (!origin) return url
   const u = new URL(url)
   return origin + u.pathname + u.search

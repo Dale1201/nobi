@@ -10,5 +10,5 @@ export interface McpStatus {
 }
 
 export function mcpAddCommand(url: string, token: string): string {
-  return `claude mcp add --scope user --transport http nobsidian ${url} --header "Authorization: Bearer ${token}"`
+  return `claude mcp add --scope user --transport http nobi ${url} --header "Authorization: Bearer ${token}"`
 }

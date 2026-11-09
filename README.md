@@ -1,4 +1,4 @@
-# Nobsidian
+# Nobi
 
 [![CI](https://github.com/Dale1201/nobsidian/actions/workflows/ci.yml/badge.svg)](https://github.com/Dale1201/nobsidian/actions/workflows/ci.yml)
 
@@ -46,10 +46,10 @@ The app is ad-hoc signed rather than signed with an Apple Developer ID, so a dow
 ## How notes are stored
 
 Each page is a `.md` file; a page's child pages live in a folder with the same name.
-Images and files go in `attachments/`, and app data (favorites, page order, trash, page history) lives in `.nobsidian/`.
+Images and files go in `attachments/`, and app data (favorites, page order, trash, page history) lives in `.nobi/`.
 A drawing is an `.excalidraw.svg` file in `attachments/`, linked from the page like any image, so other Markdown apps show it as a picture; the SVG carries the editable drawing, which excalidraw.com and the Excalidraw VS Code extension can also open.
 Notion-only formatting uses small Markdown extensions, described in `docs/superpowers/specs/2026-10-21-nobsidian-design.md`.
-Opening an existing folder only adds an `id` to each note's frontmatter; a note is rewritten in Nobsidian's Markdown style only when you edit it, and anything the editor can't show (raw HTML, wikilinks, footnotes) is kept exactly as written.
+Opening an existing folder only adds an `id` to each note's frontmatter; a note is rewritten in Nobi's Markdown style only when you edit it, and anything the editor can't show (raw HTML, wikilinks, footnotes) is kept exactly as written.
 
 ## License
 

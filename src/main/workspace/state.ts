@@ -1,8 +1,9 @@
-import { mkdir, readFile } from 'node:fs/promises'
+import { mkdir, readFile, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 import { writeFileAtomic } from './fs-utils'
 
-export const APP_DIR = '.nobsidian'
+export const APP_DIR = '.nobi'
+const LEGACY_APP_DIR = '.nobsidian'
 export const ROOT_ORDER_KEY = 'root'
 export const STATE_FILE = 'workspace.json'
 
@@ -35,4 +36,13 @@ export function serializeState(state: WorkspaceState): string {
 export async function saveState(root: string, state: WorkspaceState): Promise<void> {
   await mkdir(join(root, APP_DIR), { recursive: true })
   await writeFileAtomic(join(root, APP_DIR, STATE_FILE), serializeState(state))
+}
+
+/** Renames the folder the app kept under its old name, Nobsidian, unless both exist. */
+export async function migrateAppDir(root: string): Promise<void> {
+  await rename(join(root, LEGACY_APP_DIR), join(root, APP_DIR)).catch(
+    (err: NodeJS.ErrnoException) => {
+      if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(err.code ?? '')) throw err
+    }
+  )
 }

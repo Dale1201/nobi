@@ -48,9 +48,7 @@ test('the page Claude reads names a page block by its title', async ({ nbWith, a
     .click()
   await expect(page.locator('.nb-ai-added')).toHaveText('We argued about launch.')
   const sent = (anthropic.messages()[0].messages as { content: { text: string }[] }[])[0]
-  expect(sent.content[0].text).toMatch(
-    /\[Launch plan\]\(nobsidian:\/\/page\/[0-9a-f-]{36} "page"\)/
-  )
+  expect(sent.content[0].text).toMatch(/\[Launch plan\]\(nobi:\/\/page\/[0-9a-f-]{36} "page"\)/)
 })
 
 test('Make shorter streams a diff into the page, saved only once accepted', async ({

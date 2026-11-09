@@ -6,16 +6,16 @@ import { expect, test } from '../e2e/fixtures'
 import { stubOpenDialog } from '../e2e/helpers'
 import { launchElectron } from '../e2e/launch'
 
-const APP = resolve('dist/mac-arm64/Nobsidian.app/Contents/MacOS/Nobsidian')
+const APP = resolve('dist/mac-arm64/Nobi.app/Contents/MacOS/Nobi')
 
 test('the packaged app launches to the welcome screen', async ({ tmp }) => {
   const userData = await tmp('user')
   const app = await launchElectron({
     executablePath: APP,
-    env: { NOBSIDIAN_USER_DATA: userData }
+    env: { NOBI_USER_DATA: userData }
   })
   const page = await app.firstWindow()
-  await expect(page.getByText('Welcome to Nobsidian')).toBeVisible()
+  await expect(page.getByText('Welcome to Nobi')).toBeVisible()
   expect(await app.evaluate(({ app }) => app.isPackaged)).toBe(true)
 })
 
@@ -38,8 +38,8 @@ test('the packaged app imports a Notion export in its worker', async ({ tmp }) =
   const app = await launchElectron({
     executablePath: APP,
     env: {
-      NOBSIDIAN_USER_DATA: userData,
-      NOBSIDIAN_E2E_WEB: `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+      NOBI_USER_DATA: userData,
+      NOBI_E2E_WEB: `http://127.0.0.1:${(server.address() as AddressInfo).port}`
     }
   })
   const page = await app.firstWindow()
@@ -56,7 +56,7 @@ test('the packaged app draws with the fonts it ships', async ({ tmp }) => {
   const workspace = await tmp('workspace')
   await writeFile(join(workspace, 'Sketch.md'), '\n')
   await writeFile(join(userData, 'settings.json'), JSON.stringify({ lastWorkspace: workspace }))
-  const app = await launchElectron({ executablePath: APP, env: { NOBSIDIAN_USER_DATA: userData } })
+  const app = await launchElectron({ executablePath: APP, env: { NOBI_USER_DATA: userData } })
   const page = await app.firstWindow()
   const requests: string[] = []
   page.on('request', (r) => requests.push(r.url()))

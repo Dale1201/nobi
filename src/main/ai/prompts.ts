@@ -16,7 +16,7 @@ export const PAGE_LIMIT = 100_000
 
 // Byte-identical on every request, so it heads the cached prefix.
 export const SYSTEM_PROMPT = [
-  'You are the writing assistant inside Nobsidian, a note-taking app.',
+  'You are the writing assistant inside Nobi, a note-taking app.',
   "The user's current page is given in Markdown inside <page> tags.",
   '⟦selection⟧ and ⟦/selection⟧ mark the text the user selected, and ⟦cursor⟧ marks where the cursor is.',
   'These markers are not part of the page: never write them.',

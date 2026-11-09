@@ -188,9 +188,7 @@ export function TabBar(): React.JSX.Element {
                   </span>
                   <span className="tab-title">{title}</span>
                 </span>
-                {conflict && (
-                  <span className="tab-conflict" aria-label="Changed outside Nobsidian" />
-                )}
+                {conflict && <span className="tab-conflict" aria-label="Changed outside Nobi" />}
                 <span className="tab-close">
                   <button
                     aria-label={`Close ${title}`}

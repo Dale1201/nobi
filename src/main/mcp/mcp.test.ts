@@ -18,7 +18,7 @@ let client: Client
 let treeChanges: number
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-mcp-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-mcp-'))
   await writeFile(join(root, 'Projects.md'), 'All my projects.\n')
   ws = await Workspace.open(root, { settleMs: 0 })
   treeChanges = 0
@@ -85,7 +85,7 @@ describe('the MCP server', () => {
     ])
     expect(tools.find((t) => t.name === 'read_page')?.annotations?.readOnlyHint).toBe(true)
     expect(tools.find((t) => t.name === 'trash_page')?.annotations?.destructiveHint).toBe(true)
-    expect(client.getInstructions()).toContain('nobsidian://page/<id>')
+    expect(client.getInstructions()).toContain('nobi://page/<id>')
   })
 
   it('refuses requests without the token or from a foreign host', async () => {
@@ -156,12 +156,12 @@ describe('the MCP server', () => {
     const notes = idIn(
       await call('create_page', {
         title: 'Notes',
-        markdown: `See [Projects](nobsidian://page/${projects} "mention").`
+        markdown: `See [Projects](nobi://page/${projects} "mention").`
       })
     )
     expect(await read('Notes.md')).toContain('[Projects](Projects.md "mention")')
     expect(await call('read_page', { id: notes })).toContain(
-      `See [Projects](nobsidian://page/${projects} "mention").`
+      `See [Projects](nobi://page/${projects} "mention").`
     )
   })
 
@@ -169,11 +169,11 @@ describe('the MCP server', () => {
     const projects = idIn(await call('list_pages'))
     const launch = idIn(await call('create_page', { title: 'Launch', parentId: projects }))
     expect(await call('read_page', { id: projects })).toContain(
-      `[Launch](nobsidian://page/${launch} "page")`
+      `[Launch](nobi://page/${launch} "page")`
     )
     await call('rename_page', { id: launch, title: 'Launch day' })
     expect(await call('read_page', { id: projects })).toContain(
-      `[Launch day](nobsidian://page/${launch} "page")`
+      `[Launch day](nobi://page/${launch} "page")`
     )
   })
 
@@ -201,7 +201,7 @@ describe('the MCP server', () => {
     )
     ws!.close()
     ws = null
-    await expect(call('list_pages')).rejects.toThrow('No notes folder is open in Nobsidian.')
+    await expect(call('list_pages')).rejects.toThrow('No notes folder is open in Nobi.')
   })
 
   it('checks a parent id as it checks a page id, and lets null mean the top level', async () => {

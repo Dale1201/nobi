@@ -22,7 +22,7 @@ import { Workspace, type WorkspaceEvent } from './workspace'
 let root: string
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-external-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-external-'))
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })
@@ -40,7 +40,7 @@ const change = (path: string): FileChange => ({ kind: 'change', path })
 
 /** Snapshot bodies of a page, newest first. */
 async function bodies(id: string): Promise<string[]> {
-  const dir = join(root, '.nobsidian', 'history', id)
+  const dir = join(root, '.nobi', 'history', id)
   const names = (await readdir(dir).catch(() => [] as string[])).filter((n) => n.endsWith('.md'))
   const texts = await Promise.all(
     names
@@ -72,7 +72,7 @@ describe('Edits made outside the app', () => {
     await ws.reconcile([
       change('Mine.md'),
       { kind: 'add', path: 'Mine.md' },
-      { kind: 'addDir', path: '.nobsidian' },
+      { kind: 'addDir', path: '.nobi' },
       { kind: 'addDir', path: 'attachments' },
       // Reported late, after the rename already moved the page away from here.
       { kind: 'add', path: 'Untitled.md' },
@@ -244,7 +244,7 @@ describe('Edits made outside the app', () => {
       { kind: 'addDir', path: 'Ideas' }
     ])
     expect(ws.tree().map((n) => n.title)).toEqual(['Anchor', 'Ideas'])
-    expect((await readdir(root)).filter((n) => n !== '.nobsidian').sort()).toEqual([
+    expect((await readdir(root)).filter((n) => n !== '.nobi').sort()).toEqual([
       'Anchor.md',
       'Ideas',
       'Ideas.md'
@@ -356,13 +356,13 @@ describe('Edits made outside the app', () => {
     const { ws, events } = await opened()
     const a = await namedPage(ws, 'A')
     const b = await namedPage(ws, 'B')
-    await ws.reconcile([change('.nobsidian/workspace.json')])
+    await ws.reconcile([change('.nobi/workspace.json')])
     expect(events).toEqual([])
     await write(
-      '.nobsidian/workspace.json',
+      '.nobi/workspace.json',
       JSON.stringify({ version: 1, order: { root: [b, a] }, favorites: [a] })
     )
-    await ws.reconcile([change('.nobsidian/workspace.json')])
+    await ws.reconcile([change('.nobi/workspace.json')])
     expect(events).toEqual([{ type: 'tree' }])
     expect(ws.tree().map((n) => n.id)).toEqual([b, a])
     expect(ws.favorites()).toEqual([a])

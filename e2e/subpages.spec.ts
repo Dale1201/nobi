@@ -54,7 +54,7 @@ test('typing in the parent right before adding a page keeps both the text and th
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page.locator(`${editor} .nb-page-link-title`)).toHaveText('Subpage')
   await expect(page.locator(editor)).toContainText('First idea and more')
-  await expect(page.getByText('This page was changed outside Nobsidian.')).toHaveCount(0)
+  await expect(page.getByText('This page was changed outside Nobi.')).toHaveCount(0)
 })
 
 test('a parent open in another tab shows the new sub-page link without a conflict', async ({
@@ -77,7 +77,7 @@ test('a parent open in another tab shows the new sub-page link without a conflic
   const shown = page.locator(editor).locator('visible=true')
   await expect(shown.locator('.nb-page-link-title')).toHaveText('Subpage')
   await expect(shown).toContainText('First idea and more')
-  await expect(page.getByText('This page was changed outside Nobsidian.')).toHaveCount(0)
+  await expect(page.getByText('This page was changed outside Nobi.')).toHaveCount(0)
 })
 
 test('deleting a sub-page removes its link from the parent, and restoring puts it and its sub-pages back', async ({
@@ -105,7 +105,7 @@ test('deleting a sub-page removes its link from the parent, and restoring puts i
   await expect(shown).toContainText('Before')
   await expect(shown).toContainText('After')
   await waitForFile(join(nb.workspace, 'Plan.md'), 'Before\n\nAfter\n')
-  await expect(page.getByText('This page was changed outside Nobsidian.')).toHaveCount(0)
+  await expect(page.getByText('This page was changed outside Nobi.')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Trash', exact: true }).click()
   await page.getByTestId('trash-item-Step').click()
@@ -142,5 +142,5 @@ test('restoring a sub-page right after typing in its parent keeps both the text 
   await waitForFile(join(nb.workspace, 'Plan.md'), 'Before typed\n\n[Step](Plan/Step.md "page")\n')
   await page.getByTestId('sidebar-row-Plan').click()
   await expect(page.locator(`${editor} .nb-page-link-title`)).toHaveText('Step')
-  await expect(page.getByText('This page was changed outside Nobsidian.')).toHaveCount(0)
+  await expect(page.getByText('This page was changed outside Nobi.')).toHaveCount(0)
 })

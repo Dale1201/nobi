@@ -9,7 +9,7 @@ let clock: Date
 const meta = { path: 'Page.md', links: {} }
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-history-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-history-'))
   clock = new Date('2026-10-21T10:00:00.000Z')
 })
 afterEach(async () => {
@@ -18,7 +18,7 @@ afterEach(async () => {
 
 const store = (): HistoryStore => new HistoryStore(root, () => clock)
 const files = (id: string): Promise<string[]> =>
-  readdir(join(root, '.nobsidian', 'history', id)).then((f) => f.sort())
+  readdir(join(root, '.nobi', 'history', id)).then((f) => f.sort())
 
 describe('HistoryStore', () => {
   it('never recreates a workspace folder that has gone', async () => {

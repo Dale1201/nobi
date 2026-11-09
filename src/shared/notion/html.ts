@@ -267,7 +267,7 @@ function mapCallout(el: Element, ctx: MapContext): Block {
   }
 }
 
-/** A callout always has a background in Nobsidian; Notion's plain callouts are gray. */
+/** A callout always has a background in Nobi; Notion's plain callouts are gray. */
 function calloutColors(colors: BlockColors): BlockColors {
   return colors.backgroundColor || colors.textColor ? colors : { backgroundColor: 'gray' }
 }
@@ -397,7 +397,7 @@ function mapDiv(el: Element, ctx: MapContext): Block[] {
   return mapBlocks(el.children, ctx)
 }
 
-/** Nobsidian column widths are relative weights; Notion's ratios sum to 1. */
+/** Nobi column widths are relative weights; Notion's ratios sum to 1. */
 function columnWidth(el: Element, count: number): number {
   const ratio = Number(attr(el, 'data-notion-column-ratio'))
   const percent = /width:\s*([\d.]+)%/.exec(attr(el, 'style') ?? '')

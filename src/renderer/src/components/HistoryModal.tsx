@@ -86,7 +86,7 @@ export function HistoryModal({
         {failed && <div className="history-empty">{"Couldn't load this page's history."}</div>}
         {versions?.length === 0 && (
           <div className="history-empty">
-            No versions yet. Nobsidian keeps a version every 10 minutes while you edit, and when you
+            No versions yet. Nobi keeps a version every 10 minutes while you edit, and when you
             leave a page.
           </div>
         )}
