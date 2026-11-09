@@ -40,7 +40,7 @@ export interface FileChange {
 }
 
 export interface TrashItem {
-  /** Folder name under `.nobsidian/trash/`. */
+  /** Folder name under `.nobi/trash/`. */
   entry: string
   pageId: string
   title: string

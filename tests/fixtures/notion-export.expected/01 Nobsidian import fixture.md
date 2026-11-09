@@ -145,11 +145,11 @@ $$
 
 ## Media
 
-![An uploaded image with a caption](nobsidian-import:file/2)
+![An uploaded image with a caption](nobi-import:file/2)
 
-![An external image](nobsidian-import:file/3)
+![An external image](nobi-import:file/3)
 
-[fixture-report.pdf](nobsidian-import:file/4 "file")
+[fixture-report.pdf](nobi-import:file/4 "file")
 
 ## Columns
 

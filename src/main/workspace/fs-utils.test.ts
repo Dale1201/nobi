@@ -17,7 +17,7 @@ vi.mock('node:fs/promises', async (original) => {
 let root: string
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-fs-utils-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-fs-utils-'))
 })
 afterEach(async () => {
   failRename.on = false

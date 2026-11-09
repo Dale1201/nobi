@@ -19,9 +19,9 @@ test('first run opens a sandboxed window that asks for a folder and creates the 
   const userData = await tmp('user')
   const folder = await tmp('workspace')
   const { app, page } = await launch(userData)
-  await expect(page).toHaveTitle('Nobsidian')
+  await expect(page).toHaveTitle('Nobi')
   expect(await app.evaluate(({ app }) => app.getPath('userData'))).toBe(userData)
-  if (process.env.NOBSIDIAN_E2E_SHOW !== '1') {
+  if (process.env.NOBI_E2E_SHOW !== '1') {
     expect(
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())
     ).toBe(false)
@@ -29,7 +29,7 @@ test('first run opens a sandboxed window that asks for a folder and creates the 
   expect(await page.evaluate(() => typeof (globalThis as { require?: unknown }).require)).toBe(
     'undefined'
   )
-  await expect(page.getByText('Welcome to Nobsidian')).toBeVisible()
+  await expect(page.getByText('Welcome to Nobi')).toBeVisible()
   await stubOpenDialog(app, [folder])
   await page.getByRole('button', { name: 'Choose a folder' }).click()
   await expect(page.getByTestId('sidebar-row-Untitled')).toBeVisible()

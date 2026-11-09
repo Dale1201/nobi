@@ -57,7 +57,7 @@ const serviceWith = (keys: KeyStore): AiService =>
   })
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'nobsidian-ai-'))
+  dir = await mkdtemp(join(tmpdir(), 'nobi-ai-'))
   fake = await FakeAnthropic.start()
   keys = new KeyStore(join(dir, 'key.json'), codec)
   model = 'claude-opus-5-5'
@@ -381,9 +381,9 @@ describe('requests', () => {
 })
 
 it('only lets tests point the client at another server', () => {
-  expect(apiUrl({ NOBSIDIAN_AI_BASE_URL: 'http://evil' })).toBe('https://api.anthropic.com')
+  expect(apiUrl({ NOBI_AI_BASE_URL: 'http://evil' })).toBe('https://api.anthropic.com')
   expect(apiUrl({ ANTHROPIC_BASE_URL: 'http://evil' })).toBe('https://api.anthropic.com')
-  expect(apiUrl({ NOBSIDIAN_E2E: '1', NOBSIDIAN_AI_BASE_URL: 'http://127.0.0.1:9' })).toBe(
+  expect(apiUrl({ NOBI_E2E: '1', NOBI_AI_BASE_URL: 'http://127.0.0.1:9' })).toBe(
     'http://127.0.0.1:9'
   )
 })

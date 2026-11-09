@@ -1,5 +1,5 @@
 {
-  "name": "nobsidian",
+  "name": "nobi",
   "version": "0.1.0",
   "description": "Open-source, Notion-like note-taking app for macOS. Your notes as Markdown files.",
   "main": "./out/main/index.js",
@@ -89,7 +89,7 @@
     "zustand": "^5.0.15"
   },
   "type": "module",
-  "productName": "Nobsidian",
+  "productName": "Nobi",
   "license": "GPL-3.0-or-later",
   "engines": {
     "node": ">=22.22"

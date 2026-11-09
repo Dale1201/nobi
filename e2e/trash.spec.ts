@@ -34,7 +34,7 @@ test('a deleted page opens read-only from Trash and can be restored', async ({ n
   await plans.getByRole('button', { name: 'Expand' }).click()
   await expect(page.getByTestId('sidebar-row-Child')).toBeVisible()
   await expect.poll(() => readdir(join(nb.workspace, 'Plans'))).toEqual(['Child.md'])
-  await expect.poll(() => readdir(join(nb.workspace, '.nobsidian', 'trash'))).toEqual([])
+  await expect.poll(() => readdir(join(nb.workspace, '.nobi', 'trash'))).toEqual([])
 })
 
 test('a trashed page keeps a way back to the sidebar, and delete forever asks first', async ({
@@ -62,7 +62,7 @@ test('a trashed page keeps a way back to the sidebar, and delete forever asks fi
   await page.keyboard.press('Meta+K')
   await expect(page.getByRole('dialog')).toHaveCount(1)
   await confirm.getByRole('button', { name: 'Delete forever' }).click()
-  await expect.poll(() => readdir(join(nb.workspace, '.nobsidian', 'trash'))).toEqual([])
+  await expect.poll(() => readdir(join(nb.workspace, '.nobi', 'trash'))).toEqual([])
   await page.getByRole('button', { name: 'Trash', exact: true }).click()
   await expect(page.getByText('No pages in Trash')).toBeVisible()
 })

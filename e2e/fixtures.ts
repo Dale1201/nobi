@@ -20,11 +20,11 @@ export async function launch(
   const app = await launchElectron({
     args: ['out/main/index.js'],
     env: {
-      NOBSIDIAN_USER_DATA: userData,
+      NOBI_USER_DATA: userData,
       NODE_ENV: 'test',
       // Parallel test apps would otherwise share the connector's default port.
-      NOBSIDIAN_MCP_PORT: '0',
-      ...(aiUrl ? { NOBSIDIAN_AI_BASE_URL: aiUrl } : {})
+      NOBI_MCP_PORT: '0',
+      ...(aiUrl ? { NOBI_AI_BASE_URL: aiUrl } : {})
     }
   })
   const page = await app.firstWindow()
@@ -85,7 +85,7 @@ export const test = base.extend<Fixtures>({
     { auto: true }
   ],
   tmp: async ({}, use) => {
-    const root = await mkdtemp(join(tmpdir(), 'nobsidian-e2e-'))
+    const root = await mkdtemp(join(tmpdir(), 'nobi-e2e-'))
     await use(async (name) => {
       const dir = join(root, name)
       await mkdir(dir)

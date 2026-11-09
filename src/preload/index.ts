@@ -3,7 +3,7 @@ import type { Api, IpcEvents } from '../shared/ipc'
 import { windowControls } from '../shared/window'
 
 // Synthetic files in end-to-end tests have no path on disk, so their name stands in for one.
-const e2e = process.env.NOBSIDIAN_E2E === '1'
+const e2e = process.env.NOBI_E2E === '1'
 
 const api: Api = {
   invoke: (channel, payload) => ipcRenderer.invoke(channel, payload),

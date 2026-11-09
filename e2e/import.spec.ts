@@ -17,7 +17,7 @@ const IMPORTED = { timeout: 15_000 }
 // "Web" images the export links to are served locally; a test can hold the answers back.
 let server: Server
 let held: Promise<void> | null = null
-const webBefore = process.env.NOBSIDIAN_E2E_WEB
+const webBefore = process.env.NOBI_E2E_WEB
 test.beforeAll(async () => {
   const png = await readFile(join(FIXTURES, 'web-image.png'))
   server = createServer((_req, res) => {
@@ -27,11 +27,11 @@ test.beforeAll(async () => {
     })
   })
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done))
-  process.env.NOBSIDIAN_E2E_WEB = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  process.env.NOBI_E2E_WEB = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
 test.afterAll(() => {
-  if (webBefore === undefined) delete process.env.NOBSIDIAN_E2E_WEB
-  else process.env.NOBSIDIAN_E2E_WEB = webBefore
+  if (webBefore === undefined) delete process.env.NOBI_E2E_WEB
+  else process.env.NOBI_E2E_WEB = webBefore
   server.close()
 })
 
@@ -81,7 +81,7 @@ test('imports a Notion export with its pages, images, colors and links', async (
   await waitForFile(join(root, 'Nobsidian import fixture.md'), '> [!callout:orange_bg] 🚧')
   const report = await readFile(join(root, 'Import report.md'), 'utf8')
   expect(report).toContain('## Table formatting not kept (2)')
-  expect(await readdir(join(nb.workspace, '.nobsidian'))).not.toContainEqual(
+  expect(await readdir(join(nb.workspace, '.nobi'))).not.toContainEqual(
     expect.stringMatching(/^import-/)
   )
 })
@@ -144,7 +144,7 @@ test('a zip dropped during an import is refused, and cancelling leaves nothing b
   await expect(page.getByTestId('sidebar-row-Imported from Notion')).toHaveCount(0)
   await expect
     .poll(async () =>
-      (await readdir(join(nb.workspace, '.nobsidian')).catch(() => [])).filter((name) =>
+      (await readdir(join(nb.workspace, '.nobi')).catch(() => [])).filter((name) =>
         name.startsWith('import-')
       )
     )

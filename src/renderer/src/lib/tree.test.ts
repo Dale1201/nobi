@@ -30,7 +30,7 @@ describe('tree helpers', () => {
 
   it('finds the page a link points to, by id or by workspace path', () => {
     const nested = [node('a', [{ id: 'n', title: 'Né', path: 'a/Né Plan.md', children: [] }])]
-    expect(pageIdForHref(nested, 'nobsidian://page/n')).toBe('n')
+    expect(pageIdForHref(nested, 'nobi://page/n')).toBe('n')
     expect(pageIdForHref(nested, '/a/N%C3%A9%20Plan.md')).toBe('n')
     expect(pageIdForHref(nested, '/a/N%C3%A9%20Plan.md#top')).toBe('n')
     expect(pageIdForHref(nested, '/a.md')).toBe('a')

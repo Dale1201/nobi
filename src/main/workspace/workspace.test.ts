@@ -9,7 +9,7 @@ import type { Block } from '../../shared/core/blocks'
 let root: string
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-ws-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-ws-'))
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })
@@ -46,9 +46,21 @@ describe('Workspace scanning', () => {
   it('ignores attachments and the app folder', async () => {
     await mkdir(join(root, 'attachments'))
     await writeFile(join(root, 'attachments', 'note.md'), 'not a page')
-    await mkdir(join(root, '.nobsidian'))
+    await mkdir(join(root, '.nobi'))
     const ws = await Workspace.open(root, { settleMs: 0 })
     expect(ws.tree()).toEqual([])
+  })
+
+  it('takes over data and links from when the app was called Nobsidian', async () => {
+    await mkdir(join(root, '.nobsidian'))
+    await writeFile(join(root, '.nobsidian', 'workspace.json'), '{"order":{},"favorites":["a"]}')
+    await writeFile(join(root, 'A.md'), '---\nid: a\n---\n\n[B](nobsidian://page/b)\n')
+    await writeFile(join(root, 'B.md'), '---\nid: b\n---\n')
+    const ws = await Workspace.open(root, { settleMs: 0 })
+    expect(await readdir(root)).not.toContain('.nobsidian')
+    expect(await read('.nobi/workspace.json')).toContain('"a"')
+    const [para] = (await ws.readPage('a')).blocks
+    expect(para.type === 'paragraph' && para.content[0]).toMatchObject({ href: pageLinkHref('b') })
   })
 })
 
@@ -199,9 +211,9 @@ describe('Workspace page operations', () => {
     await ws.trashPage(a.id)
     expect(ws.tree().map((n) => n.id)).toEqual([keep.id])
     expect(ws.favorites()).toEqual([])
-    const trash = await readdir(join(root, '.nobsidian', 'trash'))
+    const trash = await readdir(join(root, '.nobi', 'trash'))
     expect(trash).toHaveLength(1)
-    expect((await readdir(join(root, '.nobsidian', 'trash', trash[0]))).sort()).toEqual([
+    expect((await readdir(join(root, '.nobi', 'trash', trash[0]))).sort()).toEqual([
       'Untitled',
       'Untitled.md',
       'meta.json'
@@ -249,18 +261,18 @@ describe('Workspace page operations', () => {
     const ws = await Workspace.open(root, { settleMs: 0 })
     const href = await ws.saveAttachment('a.excalidraw.svg', new TextEncoder().encode('<svg/>'))
     await writeFile(join(root, 'secret.svg'), '<svg/>')
-    await mkdir(join(root, '.nobsidian'), { recursive: true })
-    await writeFile(join(root, '.nobsidian', 'x.excalidraw.svg'), '<svg/>')
+    await mkdir(join(root, '.nobi'), { recursive: true })
+    await writeFile(join(root, '.nobi', 'x.excalidraw.svg'), '<svg/>')
     expect(await ws.readDrawing(href)).toBe('<svg/>')
     expect(await ws.readDrawing('/attachments/missing.excalidraw.svg')).toBeNull()
     expect(await ws.readDrawing('/secret.svg')).toBeNull()
-    expect(await ws.readDrawing('/.nobsidian/x.excalidraw.svg')).toBeNull()
+    expect(await ws.readDrawing('/.nobi/x.excalidraw.svg')).toBeNull()
   })
 
   it('refuses asset paths outside the workspace', async () => {
     const ws = await Workspace.open(root, { settleMs: 0 })
     expect(ws.resolveAsset('/../../etc/passwd')).toBe(join(root, 'etc', 'passwd'))
-    expect(ws.resolveAsset('/.nobsidian/workspace.json')).toBeNull()
+    expect(ws.resolveAsset('/.nobi/workspace.json')).toBeNull()
   })
 })
 

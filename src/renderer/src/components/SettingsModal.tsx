@@ -165,7 +165,7 @@ function PreferencesPage(): React.JSX.Element {
   return (
     <Page title="Preferences">
       <Section title="Appearance">
-        <Row label="Theme" description="Choose a theme for Nobsidian on this device">
+        <Row label="Theme" description="Choose a theme for Nobi on this device">
           <Select
             label="Theme"
             value={theme}
@@ -274,7 +274,7 @@ function ConnectionsPage(): React.JSX.Element {
   return (
     <Page
       title="Connections"
-      description="Let Claude Code read and edit your notes while Nobsidian is open."
+      description="Let Claude Code read and edit your notes while Nobi is open."
     >
       <Section title="Claude Code">
         <Row

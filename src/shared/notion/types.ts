@@ -18,7 +18,7 @@ export interface Issue {
   detail: string
 }
 
-/** How the mapper turns references in Notion content into Nobsidian hrefs. */
+/** How the mapper turns references in Notion content into Nobi hrefs. */
 export interface MapContext {
   /** A link's target; `pageId` is Notion's id when the content says which page it is. */
   link(href: string, pageId?: string): string

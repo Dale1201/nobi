@@ -3,10 +3,10 @@ import type { IssueKind } from '../../shared/notion/types'
 import type { ImportProgress } from '../../shared/types'
 
 /** Hrefs to imported files use this scheme until landing gives each file its final name. */
-export const STAGED_FILE_PREFIX = 'nobsidian-import:file/'
+export const STAGED_FILE_PREFIX = 'nobi-import:file/'
 
 export interface StagedPage {
-  /** The page's new Nobsidian id. */
+  /** The page's new Nobi id. */
   id: string
   notionId?: string
   parentId: string | null
@@ -14,7 +14,7 @@ export interface StagedPage {
   /** An emoji, or a staged file href. */
   icon?: string
   cover?: string
-  /** Links use internal hrefs: `nobsidian://page/<id>` and staged file hrefs. */
+  /** Links use internal hrefs: `nobi://page/<id>` and staged file hrefs. */
   blocks: Block[]
 }
 

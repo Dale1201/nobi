@@ -39,7 +39,7 @@ import { PageHistory } from './page-history'
 import { PageImports } from './page-import'
 import type { ImportManifest } from '../import/types'
 import { PageTrash } from './page-trash'
-import { APP_DIR, STATE_FILE, loadState, type WorkspaceState } from './state'
+import { APP_DIR, STATE_FILE, loadState, migrateAppDir, type WorkspaceState } from './state'
 
 export type { WorkspaceEvent } from './core'
 
@@ -86,6 +86,7 @@ export class Workspace {
     // Never recreate a missing folder: it may be on an unmounted drive or have been moved.
     const info = await stat(root).catch(() => null)
     if (!info?.isDirectory()) throw new Error(`Folder not found: ${root}`)
+    await migrateAppDir(root)
     const ws = new Workspace(root, await loadState(root), options)
     ws.core.stateText = await readFile(join(root, APP_DIR, STATE_FILE), 'utf8').catch(() => '')
     await ws.external.scan()

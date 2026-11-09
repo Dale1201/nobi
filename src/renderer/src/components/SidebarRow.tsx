@@ -17,7 +17,7 @@ import {
 } from './pageActions'
 import { PageIconView } from './PageIconView'
 
-const DRAG_TYPE = 'application/x-nobsidian-page'
+const DRAG_TYPE = 'application/x-nobi-page'
 // Selectors must return stable references, or zustand re-renders forever.
 const NONE: string[] = []
 

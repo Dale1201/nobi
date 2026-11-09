@@ -466,9 +466,8 @@ export function WriterHost({
         <div className="nb-writer-setup">
           <div className="nb-writer-setup-title">Set up AI</div>
           <p>
-            Nobsidian uses Claude, with your own Anthropic API key. AI features send the text of the
-            page you&apos;re on to Anthropic. Images, files, drawings and other pages are never
-            sent.{' '}
+            Nobi uses Claude, with your own Anthropic API key. AI features send the text of the page
+            you&apos;re on to Anthropic. Images, files, drawings and other pages are never sent.{' '}
             <button
               type="button"
               className="nb-writer-link"

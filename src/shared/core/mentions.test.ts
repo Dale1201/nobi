@@ -45,12 +45,12 @@ describe('page mentions', () => {
   })
 
   it('take the current title of their page', () => {
-    const [fresh] = refreshMentionTitles([mention('nobsidian://page/1', 'Old')], (href) =>
-      href === 'nobsidian://page/1' ? 'New' : undefined
+    const [fresh] = refreshMentionTitles([mention('nobi://page/1', 'Old')], (href) =>
+      href === 'nobi://page/1' ? 'New' : undefined
     )
     expect(fresh.content).toContainEqual({
       type: 'pageMention',
-      props: { href: 'nobsidian://page/1', title: 'New' }
+      props: { href: 'nobi://page/1', title: 'New' }
     })
   })
 

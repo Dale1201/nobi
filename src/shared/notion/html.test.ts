@@ -9,7 +9,7 @@ function context(): MapContext & { issues: string[] } {
   const issues: string[] = []
   return {
     issues,
-    link: (href, pageId) => (pageId ? `nobsidian://page/${pageId}` : href),
+    link: (href, pageId) => (pageId ? `nobi://page/${pageId}` : href),
     file: (src) => `/attachments/${src.split('/').pop()}`,
     issue: (kind, detail) => issues.push(`${kind}: ${detail}`)
   }
@@ -191,14 +191,14 @@ describe('mapNotionFragment', () => {
 
   it('turns sub-page links into page blocks, or plain links when the page is not imported', () => {
     const ctx = context()
-    ctx.link = (href, pageId) => (pageId === 'a' ? 'nobsidian://page/a' : href)
+    ctx.link = (href, pageId) => (pageId === 'a' ? 'nobi://page/a' : href)
     expect(
       md(
         '<figure class="link-to-page"><a href="A.html" data-notion-page-id="a"><span class="icon"></span>A</a></figure>' +
           '<figure class="link-to-page"><a href="https://www.notion.so/b" data-notion-page-id="b">B</a></figure>',
         ctx
       )
-    ).toBe('[a](nobsidian://page/a "page")\n\n[B](https://www.notion.so/b)\n')
+    ).toBe('[a](nobi://page/a "page")\n\n[B](https://www.notion.so/b)\n')
   })
 
   it('keeps the content of synced blocks and color wrappers', () => {
@@ -222,7 +222,7 @@ describe('mapNotionFragment', () => {
       )
     ).toBe(
       '| Name | Tags | Done |\n| --- | --- | --- |\n' +
-        '| [Row](nobsidian://page/r) | <span data-bg="brown">a</span> <span data-bg="purple">b</span> | ☑ |\n'
+        '| [Row](nobi://page/r) | <span data-bg="brown">a</span> <span data-bg="purple">b</span> | ☑ |\n'
     )
   })
 
@@ -236,7 +236,7 @@ describe('mapNotionFragment', () => {
             '</tbody></table></div>'
         )
       )
-    ).toBe('### Tasks\n\n| Name |\n| --- |\n| [Write](nobsidian://page/w) |\n')
+    ).toBe('### Tasks\n\n| Name |\n| --- |\n| [Write](nobi://page/w) |\n')
   })
 
   it('reports table formatting Markdown cannot keep', () => {

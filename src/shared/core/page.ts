@@ -3,7 +3,7 @@ import type { Block } from './blocks'
 import { markdownToBlocks } from './parse'
 import { blocksToMarkdown } from './serialize'
 
-/** Page ids become folder names under `.nobsidian/`, so only these characters are accepted. */
+/** Page ids become folder names under `.nobi/`, so only these characters are accepted. */
 export const PAGE_ID = /^[\w-]+$/
 
 export interface PageMeta {
@@ -13,7 +13,7 @@ export interface PageMeta {
   cover?: string
   coverPosition?: number
   fullWidth?: boolean
-  /** Frontmatter keys Nobsidian does not know, written back untouched. */
+  /** Frontmatter keys Nobi does not know, written back untouched. */
   extra: Record<string, unknown>
 }
 
@@ -60,7 +60,7 @@ export function metaFromData(data: Record<string, unknown>): PageMeta {
     else if (key === 'coverPosition' && text !== undefined && Number.isFinite(number))
       meta.coverPosition = number
     else if (key === 'fullWidth' && typeof value === 'boolean') meta.fullWidth = value
-    // Values Nobsidian cannot interpret are kept as they are.
+    // Values Nobi cannot interpret are kept as they are.
     else meta.extra[key] = value
   }
   return meta

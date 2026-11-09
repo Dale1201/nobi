@@ -222,6 +222,8 @@ export class WorkspaceCore {
   }
 
   private toInternalHref(pagePath: string, href: string, byPath: Map<string, string>): string {
+    const pageId = pageIdFromHref(href)
+    if (pageId) return pageLinkHref(pageId)
     if (isExternalHref(href)) return href
     const target = resolveHref(pagePath, href)
     const id = byPath.get(target)

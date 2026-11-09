@@ -6,7 +6,7 @@ import { costOf, monthKey, UsageLedger } from './usage'
 
 let dir: string
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'nobsidian-usage-'))
+  dir = await mkdtemp(join(tmpdir(), 'nobi-usage-'))
 })
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true })

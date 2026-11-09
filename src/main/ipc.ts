@@ -8,7 +8,7 @@ export interface IpcProbe {
 }
 
 const probe: IpcProbe | undefined =
-  process.env.NOBSIDIAN_E2E === '1' ? { calls: {}, wrap: {} } : undefined
+  process.env.NOBI_E2E === '1' ? { calls: {}, wrap: {} } : undefined
 if (probe) (globalThis as { nbIpc?: IpcProbe }).nbIpc = probe
 
 export function handle<C extends IpcChannel>(

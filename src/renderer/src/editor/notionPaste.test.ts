@@ -34,7 +34,7 @@ describe('prepareNotionPaste', () => {
       notionIds: [PLAN, 'fedcba9876543210fedcba9876543210', OTHER]
     })
     expect(blocksToMarkdown(blocks)).toBe(
-      `[Plan](nobsidian://page/plan-id) [Spec](nobsidian://page/spec-id) [Old](https://www.notion.so/Old-${OTHER})\n`
+      `[Plan](nobi://page/plan-id) [Spec](nobi://page/spec-id) [Old](https://www.notion.so/Old-${OTHER})\n`
     )
   })
 

@@ -12,7 +12,7 @@ let watcher: WorkspaceWatcher | null
 
 beforeEach(async () => {
   // tmpdir() is under /var, a symlink to /private/var, like a workspace reached through a link.
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-watch-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-watch-'))
   watcher = null
 })
 afterEach(async () => {
@@ -88,10 +88,10 @@ describe('isIgnored', () => {
     expect(isIgnored('Notes.md')).toBe(false)
     expect(isIgnored('Projects/Plan.md')).toBe(false)
     expect(isIgnored('Projects')).toBe(false)
-    expect(isIgnored('.nobsidian')).toBe(false)
-    expect(isIgnored('.nobsidian/workspace.json')).toBe(false)
-    expect(isIgnored('.nobsidian/history')).toBe(true)
-    expect(isIgnored('.nobsidian/trash/x/Page.md')).toBe(true)
+    expect(isIgnored('.nobi')).toBe(false)
+    expect(isIgnored('.nobi/workspace.json')).toBe(false)
+    expect(isIgnored('.nobi/history')).toBe(true)
+    expect(isIgnored('.nobi/trash/x/Page.md')).toBe(true)
     expect(isIgnored('attachments')).toBe(true)
     expect(isIgnored('attachments/cat.png')).toBe(true)
     expect(isIgnored('.Notes.md.1a2b3c.tmp')).toBe(true)

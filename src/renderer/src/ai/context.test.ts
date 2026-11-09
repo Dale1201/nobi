@@ -76,11 +76,11 @@ it('wraps selected blocks, and never sends media', () => {
 it('names a page block by the title of the page it links to', () => {
   const editor = BlockNoteEditor.create({
     schema,
-    initialContent: [{ type: 'pageLink', props: { href: 'nobsidian://page/p1' } }]
+    initialContent: [{ type: 'pageLink', props: { href: 'nobi://page/p1' } }]
   })
   editor.mount(document.createElement('div'))
-  const titles: Record<string, string> = { 'nobsidian://page/p1': 'Launch plan' }
+  const titles: Record<string, string> = { 'nobi://page/p1': 'Launch plan' }
   expect(pageMarkdown(editor, { cursor: true }, (href) => titles[href])).toContain(
-    '[Launch plan](nobsidian://page/p1 "page")'
+    '[Launch plan](nobi://page/p1 "page")'
   )
 })

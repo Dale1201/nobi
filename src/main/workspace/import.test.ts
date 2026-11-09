@@ -13,7 +13,7 @@ import { Workspace } from './workspace'
 let root: string
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nobsidian-import-'))
+  root = await mkdtemp(join(tmpdir(), 'nobi-import-'))
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })
@@ -28,7 +28,7 @@ const png = (async () =>
 // Converting the fixture is the slow part, so it runs once and each test lands a copy.
 let converted: { staging: string; manifest: ImportManifest }
 beforeAll(async () => {
-  const staging = await mkdtemp(join(tmpdir(), 'nobsidian-import-fixture-'))
+  const staging = await mkdtemp(join(tmpdir(), 'nobi-import-fixture-'))
   converted = { staging, manifest: await runImport({ zips: [FIXTURE_ZIP], staging, fetch: png }) }
 })
 afterAll(async () => {
@@ -103,9 +103,7 @@ describe('landing an import', () => {
       'gradients_2.png',
       'gradients_8.png'
     ])
-    expect(await readdir(join(root, '.nobsidian'))).not.toContainEqual(
-      expect.stringMatching(/^import-/)
-    )
+    expect(await readdir(join(root, '.nobi'))).not.toContainEqual(expect.stringMatching(/^import-/))
     ws.close()
   })
 
@@ -222,8 +220,8 @@ describe('landing an import', () => {
     const ws = await Workspace.open(root)
     const manifest = await importFixture(ws)
     // A folder where the state file should be makes saving the state fail after the pages are added.
-    await rm(join(root, '.nobsidian', 'workspace.json'), { force: true })
-    await mkdir(join(root, '.nobsidian', 'workspace.json'))
+    await rm(join(root, '.nobi', 'workspace.json'), { force: true })
+    await mkdir(join(root, '.nobi', 'workspace.json'))
     const events: WorkspaceEvent[] = []
     ws.onEvent((e) => events.push(e))
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -320,10 +318,10 @@ describe('import staging', () => {
     const kept = await ws.createImportStaging()
     const dropped = await ws.createImportStaging()
     await ws.discardImport(dropped)
-    await mkdir(join(root, '.nobsidian', 'import-1-crashed'))
+    await mkdir(join(root, '.nobi', 'import-1-crashed'))
     await ws.maintain()
-    const left = (await readdir(join(root, '.nobsidian'))).filter((n) => n.startsWith('import-'))
-    expect(left.map((n) => join(root, '.nobsidian', n))).toEqual([kept])
+    const left = (await readdir(join(root, '.nobi'))).filter((n) => n.startsWith('import-'))
+    expect(left.map((n) => join(root, '.nobi', n))).toEqual([kept])
     ws.close()
   })
 })

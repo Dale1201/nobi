@@ -22,7 +22,7 @@ export interface TrashMeta {
   linkAt?: LinkPlace
 }
 
-/** One deleted page (with its sub-pages) as stored in `.nobsidian/trash/<entry>/`. */
+/** One deleted page (with its sub-pages) as stored in `.nobi/trash/<entry>/`. */
 export interface TrashEntry {
   entry: string
   meta: TrashMeta

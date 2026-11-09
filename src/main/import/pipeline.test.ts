@@ -115,7 +115,7 @@ describe('runImport on the fixture export', () => {
     expect(root.parentId).toBeNull()
     expect(root.notionId).toBe('4007c9e82e0e81549d17cfdfeaddaf81')
     expect(root.icon).toBe('🧪')
-    expect(root.cover).toMatch(/^nobsidian-import:file\/\d+$/)
+    expect(root.cover).toMatch(/^nobi-import:file\/\d+$/)
     expect(child.parentId).toBe(root.id)
     expect(child.icon).toBe('🌱')
     expect(byTitle(manifest, 'Grandchild page').parentId).toBe(child.id)

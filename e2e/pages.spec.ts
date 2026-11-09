@@ -209,7 +209,7 @@ test('dragging the scrollbar below the last block only scrolls, even with floati
   // macOS's trackpad default, where native scrollbars would float over the content.
   const app = await launchElectron({
     args: ['out/main/index.js', '-AppleShowScrollBars', 'WhenScrolling'],
-    env: { NOBSIDIAN_USER_DATA: userData, NODE_ENV: 'test', NOBSIDIAN_MCP_PORT: '0' }
+    env: { NOBI_USER_DATA: userData, NODE_ENV: 'test', NOBI_MCP_PORT: '0' }
   })
   const page = await app.firstWindow()
   await page.getByTestId('sidebar-row-Long').click()

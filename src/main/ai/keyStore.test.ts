@@ -15,7 +15,7 @@ let dir: string
 let file: string
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'nobsidian-key-'))
+  dir = await mkdtemp(join(tmpdir(), 'nobi-key-'))
   file = join(dir, 'nested', 'anthropic-key.json')
 })
 afterEach(async () => {

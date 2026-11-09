@@ -18,7 +18,7 @@ async function openConnections(page: Page, app: ElectronApplication): Promise<Lo
 async function shownCommand(dialog: Locator): Promise<{ url: string; token: string }> {
   const command = dialog.locator('.settings-command-text')
   await expect(command).toHaveText(
-    /^claude mcp add --scope user --transport http nobsidian http:\/\/127\.0\.0\.1:\d+\/mcp --header "Authorization: Bearer [0-9a-f]{64}"$/
+    /^claude mcp add --scope user --transport http nobi http:\/\/127\.0\.0\.1:\d+\/mcp --header "Authorization: Bearer [0-9a-f]{64}"$/
   )
   const [, url, token] = /(http\S+) --header "Authorization: Bearer (\w+)"/.exec(
     (await command.textContent())!
@@ -83,7 +83,7 @@ test('Claude Code connects from Settings, and the open page shows what it writes
   await waitForFile(join(workspace, 'Plans', 'Launch.md'), 'Go live.')
   const launch = idOf(await call(client, 'list_pages'), 'Launch')
   expect(await call(client, 'read_page', { id: plans })).toContain(
-    `[Launch](nobsidian://page/${launch} "page")`
+    `[Launch](nobi://page/${launch} "page")`
   )
 
   // Typing Claude's write lands on is kept on screen, not overwritten either way.
@@ -91,7 +91,7 @@ test('Claude Code connects from Settings, and the open page shows what it writes
   await pressInEditor(page, 'End')
   await page.keyboard.type(' and mine')
   await call(client, 'append_to_page', { id: plans, markdown: 'From Claude' })
-  await expect(page.getByRole('status')).toContainText('This page was changed outside Nobsidian.')
+  await expect(page.getByRole('status')).toContainText('This page was changed outside Nobi.')
   await expect(page.locator(editor)).toContainText('Rewritten by Claude and mine')
   await waitForFile(file, 'From Claude')
   await client.close()
@@ -132,6 +132,6 @@ test('Copy puts the command on the clipboard', { tag: '@clipboard' }, async ({ n
   await dialog.getByRole('button', { name: 'Copy' }).click()
   await expect(dialog.getByRole('button', { name: 'Copied' })).toBeVisible()
   expect(await nb.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(
-    `claude mcp add --scope user --transport http nobsidian ${url} --header "Authorization: Bearer ${token}"`
+    `claude mcp add --scope user --transport http nobi ${url} --header "Authorization: Bearer ${token}"`
   )
 })
