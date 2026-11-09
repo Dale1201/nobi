@@ -7,7 +7,7 @@ export type ContextMenuInfo = Pick<
 
 export interface SpellingActions {
   replace: (suggestion: string) => void
-  learn: (word: string) => void
+  addToDictionary: (word: string) => void
 }
 
 /** The right-click menu: fixes for a misspelled word first, then the edit actions that apply. */
@@ -24,7 +24,7 @@ export function contextMenuTemplate(
       items.push({ label: suggestion, click: () => spelling.replace(suggestion) })
     items.push(
       { type: 'separator' },
-      { label: 'Learn Spelling', click: () => spelling.learn(word) },
+      { label: 'Add to Dictionary', click: () => spelling.addToDictionary(word) },
       { type: 'separator' }
     )
   }

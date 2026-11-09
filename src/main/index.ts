@@ -150,7 +150,7 @@ function createWindow(): void {
   win.webContents.on('context-menu', (_event, params) => {
     const template = contextMenuTemplate(params, {
       replace: (suggestion) => win.webContents.replaceMisspelling(suggestion),
-      learn: (word) => win.webContents.session.addWordToSpellCheckerDictionary(word)
+      addToDictionary: (word) => win.webContents.session.addWordToSpellCheckerDictionary(word)
     })
     if (template.length > 0) Menu.buildFromTemplate(template).popup({ window: win })
   })
