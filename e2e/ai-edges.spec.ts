@@ -95,8 +95,13 @@ test('offline, AI is greyed out and Space types a space', async ({ nbWith }) => 
   const item = page.getByRole('option', { name: /Ask AI/ })
   await expect(item).toHaveAttribute('aria-disabled', 'true')
   await expect(item).toHaveAttribute('title', 'AI is unavailable offline')
-  await page.keyboard.press('Enter')
   await item.click({ force: true })
+  await expect(item).toBeVisible()
+  await expect(writer).toBeHidden()
+  // Enter runs the highlighted Text item, which closes the menu, so it has to come last.
+  await expect(page.getByRole('option', { name: 'Text' })).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Enter')
+  await expect(item).toBeHidden()
   await expect(writer).toBeHidden()
   await expect.poll(() => blockText(page, 1)).toBe('')
 
