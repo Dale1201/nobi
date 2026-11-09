@@ -4,7 +4,7 @@
   "description": "Open-source, Notion-like note-taking app for macOS. Your notes as Markdown files.",
   "main": "./out/main/index.js",
   "author": "Dale1201",
-  "homepage": "https://github.com/Dale1201/nobsidian",
+  "homepage": "https://github.com/Dale1201/nobi",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

@@ -1,6 +1,6 @@
 # Nobi
 
-[![CI](https://github.com/Dale1201/nobsidian/actions/workflows/ci.yml/badge.svg)](https://github.com/Dale1201/nobsidian/actions/workflows/ci.yml)
+[![CI](https://github.com/Dale1201/nobi/actions/workflows/ci.yml/badge.svg)](https://github.com/Dale1201/nobi/actions/workflows/ci.yml)
 
 An open-source, Notion-like note-taking app for macOS.
 Your notes are plain Markdown files in a folder you choose, so they stay yours.
