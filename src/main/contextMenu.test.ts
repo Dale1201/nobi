@@ -18,7 +18,7 @@ const text: ContextMenuInfo = {
   editFlags,
   selectionText: ''
 }
-const spelling = (): SpellingActions => ({ replace: vi.fn(), learn: vi.fn() })
+const spelling = (): SpellingActions => ({ replace: vi.fn(), addToDictionary: vi.fn() })
 const labels = (info: ContextMenuInfo): (string | undefined)[] =>
   contextMenuTemplate(info, spelling()).map((item) => item.label ?? item.role ?? item.type)
 
@@ -28,7 +28,7 @@ it('puts spelling fixes above the edit actions', () => {
     'the',
     'ten',
     'separator',
-    'Learn Spelling',
+    'Add to Dictionary',
     'separator',
     'cut',
     'copy',
@@ -36,7 +36,7 @@ it('puts spelling fixes above the edit actions', () => {
   ])
 })
 
-it('replaces with the chosen fix and learns the misspelled word', () => {
+it('replaces with the chosen fix and adds the misspelled word to the dictionary', () => {
   const actions = spelling()
   const items = contextMenuTemplate(
     { ...text, misspelledWord: 'teh', dictionarySuggestions: ['the', 'ten'] },
@@ -46,8 +46,8 @@ it('replaces with the chosen fix and learns the misspelled word', () => {
     (items.find((item) => item.label === label)?.click as () => void)()
   click('ten')
   expect(actions.replace).toHaveBeenCalledWith('ten')
-  click('Learn Spelling')
-  expect(actions.learn).toHaveBeenCalledWith('teh')
+  click('Add to Dictionary')
+  expect(actions.addToDictionary).toHaveBeenCalledWith('teh')
 })
 
 it('says when there are no fixes', () => {

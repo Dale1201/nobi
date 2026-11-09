@@ -81,7 +81,7 @@ test('right-clicking a misspelled word offers fixes that replace it, a correct o
   await page.mouse.click(word.x + word.width / 2, word.y + word.height / 2, { button: 'right' })
   await expect.poll(async () => (await menuLabels(app))[0]).toBe('misspelled')
   expect(await menuLabels(app)).toEqual(
-    expect.arrayContaining(['Learn Spelling', 'Cut', 'Copy', 'Paste'])
+    expect.arrayContaining(['Add to Dictionary', 'Cut', 'Copy', 'Paste'])
   )
 
   await app.evaluate(({ BrowserWindow }) => {
